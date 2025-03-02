@@ -11,6 +11,9 @@ public class UrlChecker {
         HttpURLConnection connection = null;
         try {
             URL url = new URI(urlString).toURL();
+            if (!url.getProtocol().equals("http") && !url.getProtocol().equals("https")) {
+                return false;
+            }
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("HEAD");
             connection.connect();
