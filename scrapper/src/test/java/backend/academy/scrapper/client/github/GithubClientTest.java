@@ -7,6 +7,8 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 
 import backend.academy.scrapper.config.ScrapperConfig;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,7 +29,9 @@ public class GithubClientTest {
 
     @BeforeEach
     void setUp() {
-        ScrapperConfig config = new ScrapperConfig("token", wireMock.baseUrl(), null);
+        ScrapperConfig.GithubCredentials githubCredentials =
+                new ScrapperConfig.GithubCredentials("token", wireMock.baseUrl());
+        ScrapperConfig config = new ScrapperConfig(null, 100, null, githubCredentials, null);
 
         githubClient = new GithubClient(config);
     }
@@ -46,7 +50,7 @@ public class GithubClientTest {
                                 "commit": {
                                     "url": "https://api.github.com/repos/owner/repo/commits",
                                     "message": "Initial commit",
-                                    "committer": {
+                                    "author": {
                                         "name": "Noname",
                                         "date": "2025-01-01T00:00:00Z"
                                     }
@@ -55,7 +59,7 @@ public class GithubClientTest {
                         ]
                     """)));
 
-        StepVerifier.create(githubClient.getCommits("owner", "repo"))
+        StepVerifier.create(githubClient.getCommits("owner", "repo", "2025-01-01T00:00:00Z"))
                 .expectNextMatches(commits -> commits.size() == 1
                         && commits.getFirst().commit().message().equals("Initial commit"))
                 .verifyComplete();
@@ -74,6 +78,11 @@ public class GithubClientTest {
                             {
                                 "id": 1,
                                 "title": "This is a issue",
+                                "body": "Issue body",
+                                "user": {
+                                    "id": 1,
+                                    "login": "TestUserLogin"
+                                },
                                 "state": "open",
                                 "created_at": "2025-01-01T00:00:00Z",
                                 "updated_at": "2025-01-01T00:00:00Z"
@@ -81,7 +90,7 @@ public class GithubClientTest {
                         ]
                     """)));
 
-        StepVerifier.create(githubClient.getIssues("owner", "repo"))
+        StepVerifier.create(githubClient.getIssues("owner", "repo", "2025-01-01T00:00:00Z"))
                 .expectNextMatches(issues ->
                         issues.size() == 1 && issues.getFirst().title().equals("This is a issue"))
                 .verifyComplete();
@@ -100,15 +109,62 @@ public class GithubClientTest {
                             {
                                 "id": 1,
                                 "body": "This is a comment",
-                                "created_at": "2023-01-01T00:00:00Z",
-                                "updated_at": "2023-01-01T00:00:00Z"
+                                "user": {
+                                    "id": 1,
+                                    "login": "TestUserLogin"
+                                },
+                                "created_at": "2025-01-01T00:00:00Z",
+                                "updated_at": "2025-01-01T00:00:00Z"
                             }
                         ]
                     """)));
 
-        StepVerifier.create(githubClient.getComments("owner", "repo"))
+        StepVerifier.create(githubClient.getComments("owner", "repo", "2025-01-01T00:00:00Z"))
                 .expectNextMatches(comments ->
                         comments.size() == 1 && comments.getFirst().body().equals("This is a comment"))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldReturnPullRequests() {
+        wireMock.stubFor(
+                get(urlPathEqualTo("/repos/owner/repo/pulls"))
+                        .willReturn(
+                                aResponse()
+                                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                                        .withBody(
+                                                """
+                        [
+                            {
+                                "id": 1,
+                                "state": "open",
+                                "title": "PR title",
+                                "body": "This fixes an issue",
+                                "user": {
+                                    "id": 1,
+                                    "login": "TestUserLogin"
+                                },
+                                "created_at": "2025-01-01T00:00:01Z",
+                                "updated_at": "2025-01-01T00:00:00Z"
+                            }
+                        ]
+                        """)));
+
+        StepVerifier.create(githubClient.getPullRequests("owner", "repo", LocalDateTime.parse("2025-01-01T00:00:00")))
+                .expectNextMatches(
+                        prs -> prs.size() == 1 && prs.getFirst().title().equals("PR title"))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldHandleEmptyResponse() {
+        wireMock.stubFor(get(urlPathEqualTo("/repos/owner/repo/commits"))
+                .willReturn(aResponse()
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("[]")));
+
+        StepVerifier.create(githubClient.getCommits("owner", "repo", "2025-01-01T00:00:00Z"))
+                .expectNextMatches(List::isEmpty)
                 .verifyComplete();
     }
 }

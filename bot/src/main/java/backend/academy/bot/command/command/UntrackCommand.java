@@ -10,10 +10,12 @@ import backend.academy.bot.utils.UrlChecker;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.SendMessage;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @BotCommand(command = "/untrack", description = "Прекратить отслеживание ссылки.")
 @Component
+@RequiredArgsConstructor
 public class UntrackCommand implements TelegramCommand {
     private static final String USAGE_MESSAGE = "Использование: /untrack";
     private static final String INVALID_URL_MESSAGE = "Ссылка %s некорректна";
@@ -25,11 +27,6 @@ public class UntrackCommand implements TelegramCommand {
 
     private final CommandService commandService;
     private final DialogService dialogService;
-
-    public UntrackCommand(CommandService commandService, DialogService dialogService) {
-        this.commandService = commandService;
-        this.dialogService = dialogService;
-    }
 
     @Override
     public void execute(Update update, TelegramBot bot) {
@@ -58,6 +55,7 @@ public class UntrackCommand implements TelegramCommand {
         }
 
         dialogService.startDialog(chatId, DialogType.UNTRACK);
+        dialogService.getDialog(chatId).trackState(TrackState.AWAITING_URL);
         bot.execute(new SendMessage(chatId, ENTER_URL_TO_UNTRACK));
     }
 

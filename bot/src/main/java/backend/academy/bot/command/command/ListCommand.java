@@ -6,20 +6,18 @@ import backend.academy.bot.service.CommandService;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.SendMessage;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @BotCommand(command = "/list", description = "Список отслеживаемых ссылок.")
 @Component
+@RequiredArgsConstructor
 public class ListCommand implements TelegramCommand {
     private static final String EMPTY_LIST = "Список отслеживаемых ссылок пуст.";
     private static final String USAGE_MESSAGE = "Использование: /list";
     private static final String LIST_HEADER = "Список отслеживаемых ссылок:";
     private static final String ERROR_MESSAGE = "Произошла ошибка при получении отслеживаемых ссылок.";
     private final CommandService commandService;
-
-    public ListCommand(CommandService commandService) {
-        this.commandService = commandService;
-    }
 
     @Override
     public void execute(Update update, TelegramBot bot) {

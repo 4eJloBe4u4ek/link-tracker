@@ -6,20 +6,18 @@ import backend.academy.bot.command.TelegramCommand;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.SendMessage;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
 @BotCommand(command = "/help", description = "Список доступных команд.")
 @Component
+@RequiredArgsConstructor
 public class HelpCommand implements TelegramCommand {
     private static final String HELP_HEADER = "Доступные команды:";
     private static final String USAGE_MESSAGE = "Использование: /help";
     private static final String SEPARATOR = " - ";
     private final ApplicationContext context;
-
-    public HelpCommand(ApplicationContext context) {
-        this.context = context;
-    }
 
     @Override
     public void execute(Update update, TelegramBot bot) {

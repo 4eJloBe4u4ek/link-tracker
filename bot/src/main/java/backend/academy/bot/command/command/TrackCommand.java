@@ -12,13 +12,15 @@ import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.SendMessage;
 import java.util.Arrays;
 import java.util.Collections;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @BotCommand(command = "/track", description = "Начать отслеживание ссылки.")
 @Component
+@RequiredArgsConstructor
 public class TrackCommand implements TelegramCommand {
     private static final String TAGS_MESSAGE = "Введите теги через пробел (опционально - /skip):";
-    private static final String FILTERS_MESSAGE = "Введите фильтры в формате через пробел (опционально - /skip):";
+    private static final String FILTERS_MESSAGE = "Введите фильтры через пробел (опционально - /skip):";
     private static final String USAGE_MESSAGE = "Использование: /track";
     private static final String INVALID_URL_MESSAGE = "Ссылка %s некорректна";
     private static final String SUCCESS_MESSAGE = "Ссылка %s добавлена в отслеживание.";
@@ -29,11 +31,6 @@ public class TrackCommand implements TelegramCommand {
 
     private final CommandService commandService;
     private final DialogService dialogService;
-
-    public TrackCommand(CommandService commandService, DialogService dialogService) {
-        this.commandService = commandService;
-        this.dialogService = dialogService;
-    }
 
     @Override
     public void execute(Update update, TelegramBot bot) {
@@ -64,6 +61,7 @@ public class TrackCommand implements TelegramCommand {
         }
 
         dialogService.startDialog(chatId, DialogType.TRACK);
+        dialogService.getDialog(chatId).trackState(TrackState.AWAITING_URL);
         bot.execute(new SendMessage(chatId, ENTER_URL_TO_TRACK));
     }
 
@@ -89,9 +87,9 @@ public class TrackCommand implements TelegramCommand {
 
     private void processFiltersInput(Long chatId, TelegramBot bot, TrackingContext trackingContext, String message) {
         if (message.isEmpty() || message.equalsIgnoreCase("/skip")) {
-            trackingContext.tags(Collections.emptyList());
+            trackingContext.filters(Collections.emptyList());
         } else {
-            trackingContext.tags(Arrays.asList(message.split("\\s+")));
+            trackingContext.filters(Arrays.asList(message.split("\\s+")));
         }
         trackingContext.trackState(TrackState.COMPLETED);
 

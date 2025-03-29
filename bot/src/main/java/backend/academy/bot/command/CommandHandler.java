@@ -10,10 +10,14 @@ import jakarta.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class CommandHandler {
     private static final String UNKNOWN_COMMAND =
             "Неизвестная команда. Используйте /help для просмотра списка доступных команд.";
@@ -25,11 +29,6 @@ public class CommandHandler {
     private final DialogService dialogService;
 
     private final ApplicationContext context;
-
-    public CommandHandler(ApplicationContext context, DialogService dialogService) {
-        this.dialogService = dialogService;
-        this.context = context;
-    }
 
     @PostConstruct
     public void init() {
@@ -43,16 +42,32 @@ public class CommandHandler {
             switch (dialog.dialogType()) {
                 case TRACK -> botCommands.get("/track").execute(update, bot);
                 case UNTRACK -> botCommands.get("/untrack").execute(update, bot);
+                case LINKS_BY_TAG -> botCommands.get("/linksbytag").execute(update, bot);
+                case ADD_TAG -> botCommands.get("/addtag").execute(update, bot);
+                case REMOVE_TAG -> botCommands.get("/removetag").execute(update, bot);
             }
             return;
         }
 
         String messageCommand = update.message().text().trim().split("\\s+")[0];
+
+        log.atInfo()
+                .setMessage("Received command")
+                .addKeyValue("chatId", chatId)
+                .addKeyValue("command", messageCommand)
+                .log();
+
         TelegramCommand command = botCommands.get(messageCommand);
         if (command != null) {
             command.execute(update, bot);
         } else {
             bot.execute(new SendMessage(chatId, UNKNOWN_COMMAND));
+
+            log.atInfo()
+                    .setMessage("Unknown command received")
+                    .addKeyValue("chatId", chatId)
+                    .addKeyValue("command", messageCommand)
+                    .log();
         }
     }
 

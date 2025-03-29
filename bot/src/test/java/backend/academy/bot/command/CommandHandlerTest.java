@@ -18,7 +18,7 @@ class CommandHandlerTest {
         TelegramBot bot = mock(TelegramBot.class);
         DialogService dialogService = mock(DialogService.class);
         ApplicationContext context = mock(ApplicationContext.class);
-        CommandHandler commandHandler = new CommandHandler(context, dialogService);
+        CommandHandler commandHandler = new CommandHandler(dialogService, context);
         Update update = mock(Update.class);
         Message message = mock(Message.class);
         Chat chat = mock(Chat.class);

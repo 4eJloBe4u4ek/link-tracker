@@ -4,5 +4,6 @@ public enum TrackState {
     AWAITING_URL,
     AWAITING_TAGS,
     AWAITING_FILTERS,
+    AWAITING_TAG,
     COMPLETED,
 }
