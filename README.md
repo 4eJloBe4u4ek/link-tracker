@@ -17,13 +17,14 @@
 
 # Инструкция по запуску проекта:
 
-1. Клонирование репозитория
-   git clone https://github.com/central-university-dev/java-4eJloBe4u4ek.git
-2. Настройка токенов необходимо создать файл .env и указать:
-   TELEGRAM_TOKEN=your_telegram_bot_token
-   SO_TOKEN_KEY=your_stackoverflow_key
-   SO_ACCESS_TOKEN=your_stackoverflow_access_token
-   GITHUB_TOKEN=your_github_personal_access_token
-3. Запустить в IDE ScrapperApplication и BotApplication
+1. Клонирование репозитория:
+   `git clone https://github.com/central-university-dev/java-4eJloBe4u4ek.git`
+2. Настройка токенов, необходимо создать файл .env и указать:
+   * **TELEGRAM_TOKEN**=your_telegram_bot_token
+   * **SO_TOKEN_KEY**=your_stackoverflow_key
+   * **SO_ACCESS_TOKEN**=your_stackoverflow_access_token
+   * **GITHUB_TOKEN**=your_github_personal_access_token
+3. Запуск docker compose: `docker-compose up --build` 
+4. Запуск через IDE ScrapperApplication и BotApplication
 
 Для дополнительной справки: [HELP.md](./HELP.md)
