@@ -37,7 +37,6 @@ class MessageFormatterTest {
 
     @Test
     void shouldFormatGithubCommitCorrectly() {
-        // todo переделать
         LocalDateTime now = LocalDateTime.now();
         GithubCommit.Author author = new GithubCommit.Author(12345L, "TestUser", now);
         GithubCommit commit = new GithubCommit(new GithubCommit.Commit(author, "Commit url", "Commit message"));
@@ -128,7 +127,7 @@ class MessageFormatterTest {
         StackoverflowComment comment = mock(StackoverflowComment.class);
         LocalDateTime now = LocalDateTime.now();
         when(comment.owner()).thenReturn(new StackoverflowOwner(12345L, "TestUser", 100L, 12345L));
-        ;
+
         when(comment.creationDate()).thenReturn(now);
         when(comment.body()).thenReturn("Comment text");
 

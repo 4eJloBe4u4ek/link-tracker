@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface LinkJpaRepository extends JpaRepository<LinkEntity, Long> {
+    @Override
     @NotNull
     Page<LinkEntity> findAll(@NotNull Pageable pageable);
 

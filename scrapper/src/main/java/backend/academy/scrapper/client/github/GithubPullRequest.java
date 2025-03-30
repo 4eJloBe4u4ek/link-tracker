@@ -11,7 +11,6 @@ public record GithubPullRequest(
         @JsonProperty("title") String title,
         @JsonProperty("body") String body,
         @JsonProperty("user") GithubUser user,
-        // todo подумать над временем
         @JsonProperty("created_at") @JsonDeserialize(using = UtcToSystemDefaultDeserializer.class)
                 LocalDateTime createdAt,
         @JsonProperty("updated_at") @JsonDeserialize(using = UtcToSystemDefaultDeserializer.class)
@@ -27,7 +26,6 @@ public record GithubPullRequest(
         this.id = id;
         this.state = state;
         this.title = title;
-        // todo
         this.body = body;
         this.user = user;
         this.createdAt = createdAt;

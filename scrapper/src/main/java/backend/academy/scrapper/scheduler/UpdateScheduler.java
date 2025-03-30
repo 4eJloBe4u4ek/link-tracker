@@ -9,6 +9,7 @@ import backend.academy.scrapper.scheduler.util.MessageFormatter;
 import backend.academy.shared.dto.LinkUpdate;
 import backend.academy.shared.dto.TrackedLink;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -110,7 +111,8 @@ public class UpdateScheduler {
             return;
         }
 
-        updateFuture.thenRun(() -> linkOperationRepository.updateLastCheckedTime(trackedLink, LocalDateTime.now()));
+        updateFuture.thenRun(() ->
+                linkOperationRepository.updateLastCheckedTime(trackedLink, LocalDateTime.now(ZoneId.systemDefault())));
     }
 
     private CompletableFuture<Void> handleGithubUpdate(TrackedLink trackedLink, String owner, String repo) {

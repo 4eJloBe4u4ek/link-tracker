@@ -18,6 +18,7 @@ import backend.academy.scrapper.repository.jpa.repo.LinkJpaRepository;
 import backend.academy.scrapper.repository.jpa.repo.TagJpaRepository;
 import backend.academy.shared.dto.TrackedLink;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.Page;
@@ -139,7 +140,7 @@ public class OrmLinkRepository extends BaseOrmRepository implements LinkOperatio
     }
 
     private LinkEntity createNewLink(String url) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
         LinkEntity link = new LinkEntity();
         link.url(url);
         link.createdAt(now);

@@ -9,6 +9,7 @@ import com.pengrad.telegrambot.request.SendMessage;
 import jakarta.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class CommandHandler {
+    private static final String SPACE_SPLIT_REGEX = "\\s+";
     private static final String UNKNOWN_COMMAND =
             "Неизвестная команда. Используйте /help для просмотра списка доступных команд.";
     private final Map<String, TelegramCommand> botCommands = new HashMap<>();
@@ -38,18 +40,7 @@ public class CommandHandler {
     public void handleCommand(Update update, TelegramBot bot) {
         Long chatId = update.message().chat().id();
         TrackingContext dialog = dialogService.getDialog(chatId);
-        if (dialog != null && dialog.trackState() != TrackState.COMPLETED) {
-            switch (dialog.dialogType()) {
-                case TRACK -> botCommands.get("/track").execute(update, bot);
-                case UNTRACK -> botCommands.get("/untrack").execute(update, bot);
-                case LINKS_BY_TAG -> botCommands.get("/linksbytag").execute(update, bot);
-                case ADD_TAG -> botCommands.get("/addtag").execute(update, bot);
-                case REMOVE_TAG -> botCommands.get("/removetag").execute(update, bot);
-            }
-            return;
-        }
-
-        String messageCommand = update.message().text().trim().split("\\s+")[0];
+        String messageCommand = update.message().text().trim().split(SPACE_SPLIT_REGEX)[0];
 
         log.atInfo()
                 .setMessage("Received command")
@@ -57,18 +48,15 @@ public class CommandHandler {
                 .addKeyValue("command", messageCommand)
                 .log();
 
-        TelegramCommand command = botCommands.get(messageCommand);
-        if (command != null) {
-            command.execute(update, bot);
-        } else {
-            bot.execute(new SendMessage(chatId, UNKNOWN_COMMAND));
-
-            log.atInfo()
-                    .setMessage("Unknown command received")
-                    .addKeyValue("chatId", chatId)
-                    .addKeyValue("command", messageCommand)
-                    .log();
+        if (dialog != null && dialog.trackState() != TrackState.COMPLETED) {
+            executeDialogCommand(update, bot, chatId);
+            return;
         }
+
+        Optional.ofNullable(botCommands.get(messageCommand))
+                .ifPresentOrElse(
+                        command -> command.execute(update, bot),
+                        () -> handleUnknownCommand(bot, chatId, messageCommand));
     }
 
     private void registerCommands(ApplicationContext context) {
@@ -80,5 +68,27 @@ public class CommandHandler {
                 commandDescriptions.put(annotation.command(), annotation.description());
             }
         }
+    }
+
+    private void executeDialogCommand(Update update, TelegramBot bot, Long chatId) {
+        String commandKey =
+                switch (dialogService.getDialog(chatId).dialogType()) {
+                    case TRACK -> "/track";
+                    case UNTRACK -> "/untrack";
+                    case LINKS_BY_TAG -> "/linksbytag";
+                    case ADD_TAG -> "/addtag";
+                    case REMOVE_TAG -> "/removetag";
+                };
+
+        Optional.ofNullable(botCommands.get(commandKey)).ifPresent(command -> command.execute(update, bot));
+    }
+
+    private void handleUnknownCommand(TelegramBot bot, Long chatId, String command) {
+        bot.execute(new SendMessage(chatId, UNKNOWN_COMMAND));
+        log.atInfo()
+                .setMessage("Unknown command received")
+                .addKeyValue("chatId", chatId)
+                .addKeyValue("command", command)
+                .log();
     }
 }

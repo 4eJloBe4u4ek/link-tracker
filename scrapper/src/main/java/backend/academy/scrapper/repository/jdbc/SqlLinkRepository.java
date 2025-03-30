@@ -6,6 +6,7 @@ import backend.academy.scrapper.exception.LinkNotFoundException;
 import backend.academy.scrapper.repository.LinkOperationRepository;
 import backend.academy.shared.dto.TrackedLink;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -114,7 +115,7 @@ public class SqlLinkRepository extends BaseSqlRepository implements LinkOperatio
             throw new LinkAlreadyExistsException("Ссылка уже добавлена");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
         Long linkId = getLinkId(url).orElseGet(() -> jdbcTemplate.queryForObject(ADD_LINK, Long.class, url, now, now));
         jdbcTemplate.update(ADD_CHAT_LINK, chatId, linkId);
         tags.forEach(tag -> jdbcTemplate.update(ADD_CHAT_LINK_TAG, chatId, linkId, getOrCreateTag(tag)));

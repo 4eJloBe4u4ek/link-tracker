@@ -25,7 +25,6 @@ public record GithubIssue(
             LocalDateTime updatedAt) {
         this.id = id;
         this.title = title;
-        // todo
         this.body = body;
         this.user = user;
         this.state = state;

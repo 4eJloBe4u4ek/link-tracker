@@ -4,6 +4,7 @@ import backend.academy.scrapper.exception.ChatAlreadyExistsException;
 import backend.academy.scrapper.exception.ChatNotFoundException;
 import backend.academy.scrapper.repository.ChatOperationRepository;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -26,7 +27,7 @@ public class SqlChatRepository extends BaseSqlRepository implements ChatOperatio
             throw new ChatAlreadyExistsException("Чат уже существует");
         }
 
-        jdbcTemplate.update(REGISTER_CHAT, chatId, LocalDateTime.now());
+        jdbcTemplate.update(REGISTER_CHAT, chatId, LocalDateTime.now(ZoneId.systemDefault()));
     }
 
     @Transactional

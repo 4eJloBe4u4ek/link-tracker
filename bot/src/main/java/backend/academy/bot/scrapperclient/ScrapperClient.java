@@ -84,7 +84,6 @@ public class ScrapperClient {
     }
 
     public Mono<ListLinksResponse> getTrackedLinksByTag(Long chatId, String tag) {
-        // todo status codes
         return scrapperClient
                 .get()
                 .uri("/links/by-tag?tag={tag}", tag)
@@ -96,7 +95,6 @@ public class ScrapperClient {
     }
 
     public Mono<Void> addTagToTrackedLink(Long chatId, AddTagRequest addTagRequest) {
-        // todo status codes
         return scrapperClient
                 .post()
                 .uri("/tags/add")
@@ -111,7 +109,6 @@ public class ScrapperClient {
     }
 
     public Mono<Void> removeTagFromTrackedLink(Long chatId, RemoveTagRequest removeTagRequest) {
-        // todo status codes
         return scrapperClient
                 .method(HttpMethod.DELETE)
                 .uri("/tags/remove")

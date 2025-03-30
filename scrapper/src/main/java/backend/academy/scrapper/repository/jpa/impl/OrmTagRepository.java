@@ -68,7 +68,7 @@ public class OrmTagRepository extends BaseOrmRepository implements TagOperationR
         if (existingTag.isEmpty()) {
             throw new TagNotFoundException("Тег отсутствует у ссылки");
         }
-        chatLinkTagJpaRepository.delete(existingTag.get());
+        chatLinkTagJpaRepository.delete(existingTag.orElseThrow());
         tagJpaRepository.deleteAll(tagJpaRepository.findUnusedTags());
     }
 }

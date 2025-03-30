@@ -26,7 +26,6 @@ public class GithubClient {
     }
 
     public Mono<GithubRepositoryUpdates> getRepositoryUpdates(String owner, String repo, LocalDateTime lastUpdatedAt) {
-        // todo подумать над временем
         Instant instant = lastUpdatedAt.atZone(ZoneId.systemDefault()).toInstant();
         String since = DateTimeFormatter.ISO_INSTANT.format(instant);
 

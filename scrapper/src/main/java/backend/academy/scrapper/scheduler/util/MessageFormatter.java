@@ -14,33 +14,35 @@ public class MessageFormatter {
     private static final int DEFAULT_TRUNCATE_LENGTH = 200;
 
     public static String formatGithubIssue(GithubIssue githubIssue) {
-        return "Название: " + githubIssue.title() + "\n"
-                + "Пользователь: " + githubIssue.user().login() + "\n"
-                + "Время создания: " + githubIssue.createdAt().toLocalTime() + "\n"
-                + "Описание: "
-                + truncate(githubIssue.body(), DEFAULT_TRUNCATE_LENGTH);
+        return formatGithubMessage(
+                githubIssue.title(),
+                githubIssue.user().login(),
+                githubIssue.createdAt().toLocalTime().toString(),
+                githubIssue.body());
     }
 
     public static String formatGithubCommit(GithubCommit githubCommit) {
-        return "Пользователь: " + githubCommit.commit().author().name() + "\n"
-                + "Время создания: " + githubCommit.commit().author().date().toLocalTime() + "\n"
-                + "Описание: "
-                + truncate(githubCommit.commit().message(), DEFAULT_TRUNCATE_LENGTH);
+        return formatGithubMessage(
+                null,
+                githubCommit.commit().author().name(),
+                githubCommit.commit().author().date().toLocalTime().toString(),
+                githubCommit.commit().message());
     }
 
     public static String formatGithubComment(GithubComment githubComment) {
-        return "Пользователь: " + githubComment.user().login() + "\n"
-                + "Время создания: " + githubComment.createdAt().toLocalTime() + "\n"
-                + "Описание: "
-                + truncate(githubComment.body(), DEFAULT_TRUNCATE_LENGTH);
+        return formatGithubMessage(
+                null,
+                githubComment.user().login(),
+                githubComment.createdAt().toLocalTime().toString(),
+                githubComment.body());
     }
 
     public static String formatGithubPullRequest(GithubPullRequest githubPullRequest) {
-        return "Название: " + githubPullRequest.title() + "\n"
-                + "Пользователь: " + githubPullRequest.user().login() + "\n"
-                + "Время создания: " + githubPullRequest.createdAt().toLocalTime() + "\n"
-                + "Описание: "
-                + truncate(githubPullRequest.body(), DEFAULT_TRUNCATE_LENGTH);
+        return formatGithubMessage(
+                githubPullRequest.title(),
+                githubPullRequest.user().login(),
+                githubPullRequest.createdAt().toLocalTime().toString(),
+                githubPullRequest.body());
     }
 
     public static String formatStackoverflowQuestion(StackoverflowQuestion question) {
@@ -50,25 +52,37 @@ public class MessageFormatter {
     }
 
     public static String formatStackoverflowAnswer(StackoverflowQuestion question, StackoverflowAnswer answer) {
-        return "Тема вопроса: " + question.title() + "\n"
-                + "Пользователь: " + answer.owner().displayName() + "\n"
-                + "Время создания: " + answer.creationDate().toLocalTime() + "\n"
-                + "Описание: "
-                + truncate(answer.body(), DEFAULT_TRUNCATE_LENGTH);
+        return formatStackoverflowMessage(
+                question.title(),
+                answer.owner().displayName(),
+                answer.creationDate().toLocalTime().toString(),
+                answer.body());
     }
 
     public static String formatStackoverflowComment(StackoverflowQuestion question, StackoverflowComment comment) {
-        return "Тема вопроса: " + question.title() + "\n"
-                + "Пользователь: " + comment.owner().displayName() + "\n"
-                + "Время создания: " + comment.creationDate().toLocalTime() + "\n"
+        return formatStackoverflowMessage(
+                question.title(),
+                comment.owner().displayName(),
+                comment.creationDate().toLocalTime().toString(),
+                comment.body());
+    }
+
+    private static String formatGithubMessage(String title, String user, String time, String description) {
+        return (title != null ? "Название: " + title + "\n" : "")
+                + "Пользователь: " + user + "\n"
+                + "Время создания: " + time + "\n"
+                + "Описание: " + truncate(description, DEFAULT_TRUNCATE_LENGTH);
+    }
+
+    private static String formatStackoverflowMessage(String title, String user, String time, String description) {
+        return "Тема вопроса: " + title + "\n"
+                + "Пользователь: " + user + "\n"
+                + "Время создания: " + time + "\n"
                 + "Описание: "
-                + truncate(comment.body(), DEFAULT_TRUNCATE_LENGTH);
+                + truncate(description, DEFAULT_TRUNCATE_LENGTH);
     }
 
     private static String truncate(String text, int maxLength) {
-        if (text == null) {
-            return "";
-        }
-        return text.substring(0, Math.min(maxLength, text.length()));
+        return text == null ? "" : text.substring(0, Math.min(maxLength, text.length()));
     }
 }

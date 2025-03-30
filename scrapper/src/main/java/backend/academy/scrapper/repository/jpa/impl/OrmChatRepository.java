@@ -9,6 +9,7 @@ import backend.academy.scrapper.repository.jpa.repo.FilterJpaRepository;
 import backend.academy.scrapper.repository.jpa.repo.LinkJpaRepository;
 import backend.academy.scrapper.repository.jpa.repo.TagJpaRepository;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,7 +34,7 @@ public class OrmChatRepository extends BaseOrmRepository implements ChatOperatio
 
         ChatEntity chat = new ChatEntity();
         chat.id(chatId);
-        chat.createdAt(LocalDateTime.now());
+        chat.createdAt(LocalDateTime.now(ZoneId.systemDefault()));
         chatJpaRepository.save(chat);
     }
 

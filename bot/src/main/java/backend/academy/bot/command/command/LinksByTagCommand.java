@@ -4,6 +4,7 @@ import backend.academy.bot.command.BotCommand;
 import backend.academy.bot.command.TelegramCommand;
 import backend.academy.bot.dialog.DialogService;
 import backend.academy.bot.dialog.DialogType;
+import backend.academy.bot.dialog.DialogUtils;
 import backend.academy.bot.dialog.TrackState;
 import backend.academy.bot.dialog.TrackingContext;
 import backend.academy.bot.service.CommandService;
@@ -18,12 +19,15 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class LinksByTagCommand implements TelegramCommand {
+    private static final String SPACE_SPLIT_REGEX = "\\s+";
+    private static final String NEW_LINE = "\n";
+    private static final String COMMAND_NAME = "/linksbytag";
     private static final String EMPTY_LIST = "Список отслеживаемых ссылок по тегу пуст.";
-    private static final String USAGE_MESSAGE = "Использование: /linksbytag";
+    private static final String USAGE_MESSAGE = "Использование: " + COMMAND_NAME;
     private static final String LIST_HEADER = "Список отслеживаемых ссылок по тегу:";
     private static final String ERROR_MESSAGE = "Произошла ошибка при получении отслеживаемых ссылок по тегу.";
     private static final String ENTER_TAG = "Укажите тег для вывода отслеживаемых ссылок.";
-    private static final String UNKNOWN_STATE = "Ошибка. Пожалуйста, начните с /linksbytag";
+    private static final String UNKNOWN_STATE = "Ошибка. Пожалуйста, начните с " + COMMAND_NAME;
     private static final String INVALID_TAG_COUNT = "Введите один тег для вывода списка отслеживаемых ссылок.";
 
     private final CommandService commandService;
@@ -35,8 +39,16 @@ public class LinksByTagCommand implements TelegramCommand {
         String message = update.message().text().trim();
         TrackingContext trackingContext = dialogService.getDialog(chatId);
 
-        if (message.startsWith("/linksbytag") && dialogService.getDialog(chatId) == null) {
-            processStartLinksByTag(chatId, bot, message);
+        if (message.startsWith(COMMAND_NAME) && trackingContext == null) {
+            DialogUtils.startDialogAndNotify(
+                    dialogService,
+                    chatId,
+                    bot,
+                    DialogType.LINKS_BY_TAG,
+                    TrackState.AWAITING_TAG,
+                    USAGE_MESSAGE,
+                    message,
+                    ENTER_TAG);
         } else {
             switch (trackingContext.trackState()) {
                 case AWAITING_TAG -> processTagInput(chatId, bot, trackingContext, message);
@@ -48,43 +60,24 @@ public class LinksByTagCommand implements TelegramCommand {
         }
     }
 
-    private void processStartLinksByTag(Long chatId, TelegramBot bot, String message) {
-        String[] messageParts = message.split("\\s+");
-        if (messageParts.length != 1) {
-            bot.execute(new SendMessage(chatId, USAGE_MESSAGE));
-            return;
-        }
-
-        dialogService.startDialog(chatId, DialogType.LINKS_BY_TAG);
-        dialogService.getDialog(chatId).trackState(TrackState.AWAITING_TAG);
-        bot.execute(new SendMessage(chatId, ENTER_TAG));
-    }
-
     private void processTagInput(Long chatId, TelegramBot bot, TrackingContext trackingContext, String message) {
-        trackingContext.tags(Arrays.asList(message.split("\\s+")));
+        trackingContext.tags(Arrays.asList(message.split(SPACE_SPLIT_REGEX)));
         if (trackingContext.tags().size() != 1) {
             bot.execute(new SendMessage(chatId, INVALID_TAG_COUNT));
             return;
         }
         trackingContext.trackState(TrackState.COMPLETED);
 
-        StringBuilder trackedLinksByTag = new StringBuilder(LIST_HEADER).append("\n");
         commandService
                 .getTrackedLinksByTag(chatId, trackingContext.tags().getFirst())
                 .subscribe(
                         links -> {
-                            if (links.isEmpty()) {
-                                bot.execute(new SendMessage(chatId, EMPTY_LIST));
-                            } else {
-                                for (String link : links) {
-                                    trackedLinksByTag.append(link).append("\n");
-                                }
-                                bot.execute(new SendMessage(chatId, trackedLinksByTag.toString()));
-                            }
+                            String answer = links.isEmpty()
+                                    ? EMPTY_LIST
+                                    : LIST_HEADER + NEW_LINE + String.join(NEW_LINE, links);
+                            bot.execute(new SendMessage(chatId, answer));
                         },
-                        error -> {
-                            bot.execute(new SendMessage(chatId, ERROR_MESSAGE));
-                        });
+                        error -> bot.execute(new SendMessage(chatId, ERROR_MESSAGE)));
 
         dialogService.endDialog(chatId);
     }

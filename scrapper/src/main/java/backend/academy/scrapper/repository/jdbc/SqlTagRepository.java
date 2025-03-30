@@ -34,7 +34,6 @@ public class SqlTagRepository extends BaseSqlRepository implements TagOperationR
         if (existingTag.isPresent()) {
             throw new TagAlreadyExistsException("Тег уже добавлен к данной ссылке");
         }
-        ;
 
         jdbcTemplate.update(ADD_CHAT_LINK_TAG, chatId, linkId, tagId);
     }
