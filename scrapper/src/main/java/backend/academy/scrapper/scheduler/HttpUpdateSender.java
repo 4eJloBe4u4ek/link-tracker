@@ -4,12 +4,14 @@ import backend.academy.scrapper.botclient.BotClient;
 import backend.academy.shared.dto.LinkUpdate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "app.message-transport", havingValue = "HTTP")
 public class HttpUpdateSender implements UpdateSender {
     private final BotClient botClient;
 
