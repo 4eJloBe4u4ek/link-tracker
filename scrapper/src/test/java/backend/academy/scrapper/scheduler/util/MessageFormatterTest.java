@@ -9,10 +9,10 @@ import backend.academy.scrapper.client.github.GithubCommit;
 import backend.academy.scrapper.client.github.GithubIssue;
 import backend.academy.scrapper.client.github.GithubPullRequest;
 import backend.academy.scrapper.client.github.GithubUser;
-import backend.academy.scrapper.client.stackoverflow.StackoverflowAnswer;
-import backend.academy.scrapper.client.stackoverflow.StackoverflowComment;
-import backend.academy.scrapper.client.stackoverflow.StackoverflowOwner;
-import backend.academy.scrapper.client.stackoverflow.StackoverflowQuestion;
+import backend.academy.scrapper.client.stackoverflow.StackOverflowAnswer;
+import backend.academy.scrapper.client.stackoverflow.StackOverflowComment;
+import backend.academy.scrapper.client.stackoverflow.StackOverflowOwner;
+import backend.academy.scrapper.client.stackoverflow.StackOverflowQuestion;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
@@ -85,10 +85,10 @@ class MessageFormatterTest {
 
     @Test
     void shouldFormatStackoverflowQuestionCorrectly() {
-        StackoverflowQuestion question = mock(StackoverflowQuestion.class);
+        StackOverflowQuestion question = mock(StackOverflowQuestion.class);
         LocalDateTime now = LocalDateTime.now();
         when(question.title()).thenReturn("Stackoverflow Question");
-        when(question.owner()).thenReturn(new StackoverflowOwner(12345L, "TestUser", 100L, 12345L));
+        when(question.owner()).thenReturn(new StackOverflowOwner(12345L, "TestUser", 100L, 12345L));
         when(question.lastActivityDate()).thenReturn(now);
 
         String result = MessageFormatter.formatStackoverflowQuestion(question);
@@ -101,12 +101,12 @@ class MessageFormatterTest {
 
     @Test
     void shouldFormatStackoverflowAnswerCorrectly() {
-        StackoverflowQuestion question = mock(StackoverflowQuestion.class);
+        StackOverflowQuestion question = mock(StackOverflowQuestion.class);
         when(question.title()).thenReturn("Stackoverflow Question");
 
-        StackoverflowAnswer answer = mock(StackoverflowAnswer.class);
+        StackOverflowAnswer answer = mock(StackOverflowAnswer.class);
         LocalDateTime now = LocalDateTime.now();
-        when(answer.owner()).thenReturn(new StackoverflowOwner(12345L, "TestUser", 100L, 12345L));
+        when(answer.owner()).thenReturn(new StackOverflowOwner(12345L, "TestUser", 100L, 12345L));
         when(answer.creationDate()).thenReturn(now);
         when(answer.body()).thenReturn("Answer text");
 
@@ -121,12 +121,12 @@ class MessageFormatterTest {
 
     @Test
     void shouldFormatStackoverflowCommentCorrectly() {
-        StackoverflowQuestion question = mock(StackoverflowQuestion.class);
+        StackOverflowQuestion question = mock(StackOverflowQuestion.class);
         when(question.title()).thenReturn("Stackoverflow Question");
 
-        StackoverflowComment comment = mock(StackoverflowComment.class);
+        StackOverflowComment comment = mock(StackOverflowComment.class);
         LocalDateTime now = LocalDateTime.now();
-        when(comment.owner()).thenReturn(new StackoverflowOwner(12345L, "TestUser", 100L, 12345L));
+        when(comment.owner()).thenReturn(new StackOverflowOwner(12345L, "TestUser", 100L, 12345L));
 
         when(comment.creationDate()).thenReturn(now);
         when(comment.body()).thenReturn("Comment text");

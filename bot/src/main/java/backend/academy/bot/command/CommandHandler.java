@@ -73,11 +73,15 @@ public class CommandHandler {
     private void executeDialogCommand(Update update, TelegramBot bot, Long chatId) {
         String commandKey =
                 switch (dialogService.getDialog(chatId).dialogType()) {
+                    case START -> "/start";
                     case TRACK -> "/track";
                     case UNTRACK -> "/untrack";
                     case LINKS_BY_TAG -> "/linksbytag";
                     case ADD_TAG -> "/addtag";
                     case REMOVE_TAG -> "/removetag";
+                    case ADD_FILTER -> "/addfilter";
+                    case REMOVE_FILTER -> "/removefilter";
+                    case UPDATE_NOTIFICATION_MODE -> "/setmode";
                 };
 
         Optional.ofNullable(botCommands.get(commandKey)).ifPresent(command -> command.execute(update, bot));

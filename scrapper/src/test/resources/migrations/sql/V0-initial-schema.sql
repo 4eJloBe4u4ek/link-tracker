@@ -1,7 +1,9 @@
 CREATE TABLE chats
 (
     id         BIGINT PRIMARY KEY,
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    notification_mode VARCHAR(20),
+    digest_time TIME
 );
 
 CREATE TABLE links

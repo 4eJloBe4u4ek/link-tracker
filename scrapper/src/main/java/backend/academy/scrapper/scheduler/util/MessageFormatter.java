@@ -4,9 +4,9 @@ import backend.academy.scrapper.client.github.GithubComment;
 import backend.academy.scrapper.client.github.GithubCommit;
 import backend.academy.scrapper.client.github.GithubIssue;
 import backend.academy.scrapper.client.github.GithubPullRequest;
-import backend.academy.scrapper.client.stackoverflow.StackoverflowAnswer;
-import backend.academy.scrapper.client.stackoverflow.StackoverflowComment;
-import backend.academy.scrapper.client.stackoverflow.StackoverflowQuestion;
+import backend.academy.scrapper.client.stackoverflow.StackOverflowAnswer;
+import backend.academy.scrapper.client.stackoverflow.StackOverflowComment;
+import backend.academy.scrapper.client.stackoverflow.StackOverflowQuestion;
 import lombok.experimental.UtilityClass;
 
 @UtilityClass
@@ -45,13 +45,13 @@ public class MessageFormatter {
                 githubPullRequest.body());
     }
 
-    public static String formatStackoverflowQuestion(StackoverflowQuestion question) {
+    public static String formatStackoverflowQuestion(StackOverflowQuestion question) {
         return "Тема вопроса: " + question.title() + "\n"
                 + "Пользователь: " + question.owner().displayName() + "\n"
                 + "Время обновления: " + question.lastActivityDate().toLocalTime();
     }
 
-    public static String formatStackoverflowAnswer(StackoverflowQuestion question, StackoverflowAnswer answer) {
+    public static String formatStackoverflowAnswer(StackOverflowQuestion question, StackOverflowAnswer answer) {
         return formatStackoverflowMessage(
                 question.title(),
                 answer.owner().displayName(),
@@ -59,7 +59,7 @@ public class MessageFormatter {
                 answer.body());
     }
 
-    public static String formatStackoverflowComment(StackoverflowQuestion question, StackoverflowComment comment) {
+    public static String formatStackoverflowComment(StackOverflowQuestion question, StackOverflowComment comment) {
         return formatStackoverflowMessage(
                 question.title(),
                 comment.owner().displayName(),

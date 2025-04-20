@@ -12,11 +12,11 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 @Component
-public class StackoverflowClient {
+public class StackOverflowClient {
     private final WebClient stackOverflowClient;
     private final String apiKey;
 
-    public StackoverflowClient(ScrapperConfig scrapperConfig) {
+    public StackOverflowClient(ScrapperConfig scrapperConfig) {
         this.apiKey = scrapperConfig.stackOverflow().key();
         this.stackOverflowClient = WebClient.builder()
                 .baseUrl(scrapperConfig.stackOverflow().baseUrl())
@@ -26,26 +26,26 @@ public class StackoverflowClient {
                 .build();
     }
 
-    public Mono<StackoverflowQuestionUpdates> getStackoverflowUpdates(Long questionId, LocalDateTime lastUpdatedAt) {
+    public Mono<StackOverflowQuestionUpdates> getStackoverflowUpdates(Long questionId, LocalDateTime lastUpdatedAt) {
         Instant instant = lastUpdatedAt.atZone(ZoneId.systemDefault()).toInstant();
         Long min = instant.getEpochSecond();
 
-        Mono<StackoverflowQuestion> questionMono = getQuestion(questionId);
-        Mono<List<StackoverflowAnswer>> answersMono = getAnswers(questionId, min);
-        Mono<List<StackoverflowComment>> commentsToQuestionMono = getCommentsToQuestion(questionId, min);
-        Mono<List<StackoverflowComment>> commentsToAnswerMono = answersMono.flatMap(answers -> {
+        Mono<StackOverflowQuestion> questionMono = getQuestion(questionId);
+        Mono<List<StackOverflowAnswer>> answersMono = getAnswers(questionId, min);
+        Mono<List<StackOverflowComment>> commentsToQuestionMono = getCommentsToQuestion(questionId, min);
+        Mono<List<StackOverflowComment>> commentsToAnswerMono = answersMono.flatMap(answers -> {
             List<Long> answersIds =
-                    answers.stream().map(StackoverflowAnswer::answerId).toList();
+                    answers.stream().map(StackOverflowAnswer::answerId).toList();
 
             return getCommentsToAnswer(answersIds, min);
         });
 
         return Mono.zip(questionMono, answersMono, commentsToQuestionMono, commentsToAnswerMono)
                 .map(tuple ->
-                        new StackoverflowQuestionUpdates(tuple.getT1(), tuple.getT2(), tuple.getT3(), tuple.getT4()));
+                        new StackOverflowQuestionUpdates(tuple.getT1(), tuple.getT2(), tuple.getT3(), tuple.getT4()));
     }
 
-    public Mono<StackoverflowQuestion> getQuestion(Long questionId) {
+    public Mono<StackOverflowQuestion> getQuestion(Long questionId) {
         return stackOverflowClient
                 .get()
                 .uri(uriBuilder -> uriBuilder
@@ -54,13 +54,13 @@ public class StackoverflowClient {
                         .queryParam("site", "stackoverflow")
                         .build(questionId))
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<StackoverflowResponse<StackoverflowQuestion>>() {})
+                .bodyToMono(new ParameterizedTypeReference<StackOverflowResponse<StackOverflowQuestion>>() {})
                 .flatMap(response -> response.items().isEmpty()
                         ? Mono.empty()
                         : Mono.just(response.items().getFirst()));
     }
 
-    public Mono<List<StackoverflowAnswer>> getAnswers(Long questionId, Long min) {
+    public Mono<List<StackOverflowAnswer>> getAnswers(Long questionId, Long min) {
         return stackOverflowClient
                 .get()
                 .uri(uriBuilder -> uriBuilder
@@ -73,11 +73,11 @@ public class StackoverflowClient {
                         .queryParam("filter", "withbody")
                         .build(questionId))
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<StackoverflowResponse<StackoverflowAnswer>>() {})
-                .map(StackoverflowResponse::items);
+                .bodyToMono(new ParameterizedTypeReference<StackOverflowResponse<StackOverflowAnswer>>() {})
+                .map(StackOverflowResponse::items);
     }
 
-    public Mono<List<StackoverflowComment>> getCommentsToQuestion(Long questionId, Long min) {
+    public Mono<List<StackOverflowComment>> getCommentsToQuestion(Long questionId, Long min) {
         return stackOverflowClient
                 .get()
                 .uri(uriBuilder -> uriBuilder
@@ -90,11 +90,11 @@ public class StackoverflowClient {
                         .queryParam("filter", "withbody")
                         .build(questionId))
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<StackoverflowResponse<StackoverflowComment>>() {})
-                .map(StackoverflowResponse::items);
+                .bodyToMono(new ParameterizedTypeReference<StackOverflowResponse<StackOverflowComment>>() {})
+                .map(StackOverflowResponse::items);
     }
 
-    public Mono<List<StackoverflowComment>> getCommentsToAnswer(List<Long> answerIds, Long min) {
+    public Mono<List<StackOverflowComment>> getCommentsToAnswer(List<Long> answerIds, Long min) {
         if (answerIds.isEmpty()) {
             return Mono.just(List.of());
         }
@@ -114,7 +114,7 @@ public class StackoverflowClient {
                         .queryParam("filter", "withbody")
                         .build(idsParam))
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<StackoverflowResponse<StackoverflowComment>>() {})
-                .map(StackoverflowResponse::items);
+                .bodyToMono(new ParameterizedTypeReference<StackOverflowResponse<StackOverflowComment>>() {})
+                .map(StackOverflowResponse::items);
     }
 }

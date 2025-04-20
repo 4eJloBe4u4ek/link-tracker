@@ -1,4 +1,4 @@
-package backend.academy.scrapper.scheduler;
+package backend.academy.scrapper.scheduler.sender;
 
 import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.shared.dto.LinkUpdate;

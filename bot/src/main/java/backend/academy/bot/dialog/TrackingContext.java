@@ -1,5 +1,7 @@
 package backend.academy.bot.dialog;
 
+import backend.academy.shared.dto.NotificationMode;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
@@ -16,4 +18,6 @@ public class TrackingContext {
     private List<String> tags = new ArrayList<>();
     private List<String> filters = new ArrayList<>();
     private TrackState trackState;
+    private NotificationMode notificationMode;
+    private LocalTime digestTime;
 }

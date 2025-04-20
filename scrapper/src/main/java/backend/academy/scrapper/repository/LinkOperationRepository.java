@@ -18,4 +18,6 @@ public interface LinkOperationRepository {
     TrackedLink removeLink(Long chatId, String link);
 
     void updateLastCheckedTime(TrackedLink trackedLink, LocalDateTime lastCheckedTime);
+
+    List<String> getFiltersForChatAndLink(Long chatId, TrackedLink trackedLink);
 }
