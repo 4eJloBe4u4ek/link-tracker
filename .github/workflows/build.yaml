@@ -39,11 +39,11 @@ jobs:
           update-comment: true
 
   linter:
-    name: linter
     runs-on: edu-self-hosted
     container:
       image: maven:3-eclipse-temurin-23
     timeout-minutes: 10
+    name: linter
     permissions:
       contents: read
       packages: write
