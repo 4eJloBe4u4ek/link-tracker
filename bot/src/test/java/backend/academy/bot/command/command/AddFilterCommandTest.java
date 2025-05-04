@@ -1,5 +1,19 @@
 package backend.academy.bot.command.command;
 
+import static backend.academy.bot.TestData.ADD_FILTER_ERROR_FILTER_ADD;
+import static backend.academy.bot.TestData.ADD_FILTER_ERROR_FILTER_COUNT;
+import static backend.academy.bot.TestData.ADD_FILTER_PROMPT_FILTER_NAME;
+import static backend.academy.bot.TestData.ADD_FILTER_PROMPT_FILTER_URL;
+import static backend.academy.bot.TestData.ADD_FILTER_SUCCESS_FILTER_ADDED;
+import static backend.academy.bot.TestData.CMD_ADD_FILTER;
+import static backend.academy.bot.TestData.EXTRA_ARGUMENT;
+import static backend.academy.bot.TestData.INVALID_FILTER_COUNT;
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_CHAT_ID;
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_TEXT;
+import static backend.academy.bot.TestData.TEST_CHAT_ID;
+import static backend.academy.bot.TestData.TEST_URL;
+import static backend.academy.bot.TestData.USAGE_ADD_FILTER;
+import static backend.academy.bot.TestData.VALID_FILTER_COUNT;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -26,7 +40,6 @@ class AddFilterCommandTest {
     private AddFilterCommand addFilterCommand;
     private Update update;
     private Message message;
-    private Chat chat;
 
     @BeforeEach
     void setUp() {
@@ -37,116 +50,120 @@ class AddFilterCommandTest {
 
         update = mock(Update.class);
         message = mock(Message.class);
-        chat = mock(Chat.class);
+        Chat chat = mock(Chat.class);
 
         when(update.message()).thenReturn(message);
         when(message.chat()).thenReturn(chat);
-        when(chat.id()).thenReturn(123L);
+        when(chat.id()).thenReturn(TEST_CHAT_ID);
     }
 
     @Test
     void shouldReturnUsageErrorForExtraArguments() {
-        when(message.text()).thenReturn("/addfilter extra");
+        when(message.text()).thenReturn(CMD_ADD_FILTER + EXTRA_ARGUMENT);
         addFilterCommand.execute(update, bot);
 
         Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Использование: /addfilter")));
+                .execute(argThat(
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(USAGE_ADD_FILTER)));
     }
 
     @Test
     void shouldStartAddFilterDialog() {
-        when(message.text()).thenReturn("/addfilter");
-        AssertionsForClassTypes.assertThat(dialogService.getDialog(123L)).isNull();
+        when(message.text()).thenReturn(CMD_ADD_FILTER);
+        AssertionsForClassTypes.assertThat(dialogService.getDialog(TEST_CHAT_ID))
+                .isNull();
 
         addFilterCommand.execute(update, bot);
 
-        TrackingContext context = dialogService.getDialog(123L);
+        TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         AssertionsForClassTypes.assertThat(context).isNotNull();
         AssertionsForClassTypes.assertThat(context.dialogType()).isEqualTo(DialogType.ADD_FILTER);
         AssertionsForClassTypes.assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_URL);
 
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
-                        msg -> msg.getParameters().get("chat_id").equals(123L)
-                                && msg.getParameters().get("text").equals("Укажите ссылку для добавления фильтра.")));
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(ADD_FILTER_PROMPT_FILTER_URL)));
     }
 
     @Test
     void shouldProcessValidUrlSuccessfully() {
-        when(message.text()).thenReturn("/addfilter");
+        when(message.text()).thenReturn(CMD_ADD_FILTER);
         addFilterCommand.execute(update, bot);
 
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         addFilterCommand.execute(update, bot);
 
-        TrackingContext context = dialogService.getDialog(123L);
-        AssertionsForClassTypes.assertThat(context.url()).isEqualTo("http://example.com");
+        TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
+        AssertionsForClassTypes.assertThat(context.url()).isEqualTo(TEST_URL);
         AssertionsForClassTypes.assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_FILTER);
 
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
-                        msg -> msg.getParameters().get("chat_id").equals(123L)
-                                && msg.getParameters().get("text").equals("Укажите фильтр для добавления к ссылке.")));
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(ADD_FILTER_PROMPT_FILTER_NAME)));
     }
 
     @Test
     void shouldProcessInvalidFilterCount() {
-        when(message.text()).thenReturn("/addfilter");
+        when(message.text()).thenReturn(CMD_ADD_FILTER);
         addFilterCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         addFilterCommand.execute(update, bot);
 
-        when(message.text()).thenReturn("filter1 filter2");
+        when(message.text()).thenReturn(INVALID_FILTER_COUNT);
         addFilterCommand.execute(update, bot);
 
         Mockito.verify(bot)
-                .execute(Mockito.argThat(msg -> msg.getParameters()
-                                .get("chat_id")
-                                .equals(123L)
-                        && msg.getParameters().get("text").equals("Введите один фильтр для добавления к ссылке.")));
-        TrackingContext context = dialogService.getDialog(123L);
+                .execute(Mockito.argThat(
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(ADD_FILTER_ERROR_FILTER_COUNT)));
+        TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         AssertionsForClassTypes.assertThat(context).isNotNull();
         AssertionsForClassTypes.assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_FILTER);
     }
 
     @Test
     void shouldProcessFilterInputAndCallAddFilterSuccessfully() {
-        when(message.text()).thenReturn("/addfilter");
+        when(message.text()).thenReturn(CMD_ADD_FILTER);
         addFilterCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         addFilterCommand.execute(update, bot);
 
-        when(message.text()).thenReturn("filter1");
-        when(commandService.addFilterToTrackedLink(123L, "http://example.com", "filter1"))
+        when(message.text()).thenReturn(VALID_FILTER_COUNT);
+        when(commandService.addFilterToTrackedLink(TEST_CHAT_ID, TEST_URL, VALID_FILTER_COUNT))
                 .thenReturn(Mono.just(true));
 
         addFilterCommand.execute(update, bot);
 
         Mockito.verify(bot)
-                .execute(Mockito.argThat(
-                        msg -> msg.getParameters().get("chat_id").equals(123L)
-                                && msg.getParameters().get("text").equals("Фильтр добавлен успешно.")));
-        AssertionsForClassTypes.assertThat(dialogService.getDialog(123L)).isNull();
+                .execute(Mockito.argThat(msg -> msg.getParameters()
+                                .get(TELEGRAM_PARAM_CHAT_ID)
+                                .equals(TEST_CHAT_ID)
+                        && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(ADD_FILTER_SUCCESS_FILTER_ADDED)));
+        AssertionsForClassTypes.assertThat(dialogService.getDialog(TEST_CHAT_ID))
+                .isNull();
     }
 
     @Test
     void shouldProcessFilterInputAndCallAddFilterFailure() {
-        when(message.text()).thenReturn("/addfilter");
+        when(message.text()).thenReturn(CMD_ADD_FILTER);
         addFilterCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         addFilterCommand.execute(update, bot);
 
-        when(message.text()).thenReturn("filter1");
-        when(commandService.addFilterToTrackedLink(123L, "http://example.com", "filter1"))
+        when(message.text()).thenReturn(VALID_FILTER_COUNT);
+        when(commandService.addFilterToTrackedLink(TEST_CHAT_ID, TEST_URL, VALID_FILTER_COUNT))
                 .thenReturn(Mono.just(false));
 
         addFilterCommand.execute(update, bot);
 
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
-                        msg -> msg.getParameters().get("chat_id").equals(123L)
-                                && msg.getParameters().get("text").equals("Ошибка! Фильтр не добавлен.")));
-        AssertionsForClassTypes.assertThat(dialogService.getDialog(123L)).isNull();
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(ADD_FILTER_ERROR_FILTER_ADD)));
+        AssertionsForClassTypes.assertThat(dialogService.getDialog(TEST_CHAT_ID))
+                .isNull();
     }
 }

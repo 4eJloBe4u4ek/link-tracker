@@ -1,4 +1,4 @@
-package backend.academy.bot.config;
+package backend.academy.bot.config.redis;
 
 import backend.academy.shared.dto.ListLinksResponse;
 import org.springframework.context.annotation.Bean;

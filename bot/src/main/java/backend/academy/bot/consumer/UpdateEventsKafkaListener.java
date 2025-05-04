@@ -6,12 +6,14 @@ import backend.academy.shared.dto.LinkUpdate;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class UpdateEventsKafkaListener {
@@ -27,9 +29,18 @@ public class UpdateEventsKafkaListener {
     public void listenUpdates(ConsumerRecord<Long, LinkUpdate> record, Acknowledgment acknowledgment)
             throws JsonProcessingException {
         try {
+            log.atInfo()
+                    .setMessage("Consuming link update from Kafka")
+                    .addKeyValue("url", record.value().url())
+                    .log();
             updateService.processUpdate(record.value());
             acknowledgment.acknowledge();
         } catch (Exception e) {
+            log.atWarn()
+                    .setMessage("Failed to process link update, sending to DLQ")
+                    .addKeyValue("url", record.value().url())
+                    .addKeyValue("error", e.getMessage())
+                    .log();
             dlqKafkaTemplate.send(botConfig.updateEvents().dlqTopic(), objectMapper.writeValueAsBytes(record.value()));
             acknowledgment.acknowledge();
         }

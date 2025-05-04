@@ -1,5 +1,15 @@
 package backend.academy.bot.command.command;
 
+import static backend.academy.bot.TestData.CMD_UNTRACK;
+import static backend.academy.bot.TestData.EXTRA_ARGUMENT;
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_CHAT_ID;
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_TEXT;
+import static backend.academy.bot.TestData.TEST_CHAT_ID;
+import static backend.academy.bot.TestData.TEST_URL;
+import static backend.academy.bot.TestData.UNTRACK_ERROR_URL;
+import static backend.academy.bot.TestData.UNTRACK_PROMPT_URL;
+import static backend.academy.bot.TestData.UNTRACK_SUCCESS_MESSAGE;
+import static backend.academy.bot.TestData.USAGE_UNTRACK;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -24,7 +34,6 @@ class UntrackCommandTest {
     private UntrackCommand untrackCommand;
     private Update update;
     private Message message;
-    private Chat chat;
 
     @BeforeEach
     void setUp() {
@@ -35,74 +44,69 @@ class UntrackCommandTest {
 
         update = mock(Update.class);
         message = mock(Message.class);
-        chat = mock(Chat.class);
+        Chat chat = mock(Chat.class);
 
         when(update.message()).thenReturn(message);
         when(message.chat()).thenReturn(chat);
-        when(chat.id()).thenReturn(123L);
+        when(chat.id()).thenReturn(TEST_CHAT_ID);
     }
 
     @Test
     void shouldReturnUsageErrorForExtraArguments() {
-        when(message.text()).thenReturn("/untrack extra");
+        when(message.text()).thenReturn(CMD_UNTRACK + EXTRA_ARGUMENT);
 
         untrackCommand.execute(update, bot);
 
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
-                        msg -> msg.getParameters().get("chat_id").equals(123L)
-                                && msg.getParameters().get("text").equals("Использование: /untrack")));
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(USAGE_UNTRACK)));
     }
 
     @Test
     void shouldStartUntrackDialog() {
-        when(message.text()).thenReturn("/untrack");
+        when(message.text()).thenReturn(CMD_UNTRACK);
 
         untrackCommand.execute(update, bot);
 
-        assertThat(dialogService.getDialog(123L).dialogType()).isEqualTo(DialogType.UNTRACK);
+        assertThat(dialogService.getDialog(TEST_CHAT_ID).dialogType()).isEqualTo(DialogType.UNTRACK);
         Mockito.verify(bot)
-                .execute(Mockito.argThat(msg -> msg.getParameters()
-                                .get("chat_id")
-                                .equals(123L)
-                        && msg.getParameters().get("text").equals("Укажите ссылку для прекращения отслеживания.")));
+                .execute(Mockito.argThat(
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(UNTRACK_PROMPT_URL)));
     }
 
     @Test
     void shouldUntrackValidUrlSuccessfully() {
-        dialogService.startDialog(123L, DialogType.UNTRACK);
-        dialogService.getDialog(123L).trackState(TrackState.AWAITING_URL);
-        when(message.text()).thenReturn("http://example.com");
-        when(commandService.untrackLink(123L, "http://example.com")).thenReturn(Mono.just(true));
+        dialogService.startDialog(TEST_CHAT_ID, DialogType.UNTRACK);
+        dialogService.getDialog(TEST_CHAT_ID).trackState(TrackState.AWAITING_URL);
+        when(message.text()).thenReturn(TEST_URL);
+        when(commandService.untrackLink(TEST_CHAT_ID, TEST_URL)).thenReturn(Mono.just(true));
 
         untrackCommand.execute(update, bot);
 
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
-                        msg -> msg.getParameters().get("chat_id").equals(123L)
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
                                 && msg.getParameters()
-                                        .get("text")
-                                        .equals("Ссылка http://example.com больше не отслеживается")));
-        assertThat(dialogService.getDialog(123L)).isNull();
+                                        .get(TELEGRAM_PARAM_TEXT)
+                                        .equals(String.format(UNTRACK_SUCCESS_MESSAGE, TEST_URL))));
+        assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
     }
 
     @Test
     void shouldHandleUntrackFailure() {
-        dialogService.startDialog(123L, DialogType.UNTRACK);
-        dialogService.getDialog(123L).trackState(TrackState.AWAITING_URL);
-        when(message.text()).thenReturn("http://example.com");
-        when(commandService.untrackLink(123L, "http://example.com")).thenReturn(Mono.just(false));
+        dialogService.startDialog(TEST_CHAT_ID, DialogType.UNTRACK);
+        dialogService.getDialog(TEST_CHAT_ID).trackState(TrackState.AWAITING_URL);
+        when(message.text()).thenReturn(TEST_URL);
+        when(commandService.untrackLink(TEST_CHAT_ID, TEST_URL)).thenReturn(Mono.just(false));
 
         untrackCommand.execute(update, bot);
 
         Mockito.verify(bot)
-                .execute(
-                        Mockito.argThat(
-                                msg -> msg.getParameters().get("chat_id").equals(123L)
-                                        && msg.getParameters()
-                                                .get("text")
-                                                .equals(
-                                                        "Ошибка! Невозможно прекратить отслеживание ссылки: http://example.com")));
-        assertThat(dialogService.getDialog(123L)).isNull();
+                .execute(Mockito.argThat(
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(UNTRACK_ERROR_URL + TEST_URL)));
+        assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
     }
 }

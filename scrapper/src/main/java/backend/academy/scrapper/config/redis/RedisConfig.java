@@ -1,4 +1,4 @@
-package backend.academy.scrapper.config;
+package backend.academy.scrapper.config.redis;
 
 import backend.academy.shared.dto.LinkUpdate;
 import org.springframework.context.annotation.Bean;

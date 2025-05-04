@@ -1,5 +1,8 @@
 package backend.academy.scrapper.scheduler.service;
 
+import static backend.academy.scrapper.TestData.GITHUB_TRACKED_LINK;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_TRACKED_LINK;
+import static backend.academy.scrapper.TestData.UNKNOWN_TRACKED_LINK;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -11,8 +14,6 @@ import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.scrapper.repository.LinkOperationRepository;
 import backend.academy.scrapper.scheduler.handler.GithubUpdateHandler;
 import backend.academy.scrapper.scheduler.handler.StackOverflowUpdateHandler;
-import backend.academy.shared.dto.TrackedLink;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,44 +54,34 @@ class LinkUpdateServiceTest {
 
     @Test
     void shouldCheckForGithubUpdates() {
-        TrackedLink githubLink = new TrackedLink(
-                1L, "https://github.com/owner/repo", List.of(), List.of(), LocalDateTime.now(), LocalDateTime.now());
-        when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(githubLink));
-        when(githubHandler.handle(githubLink)).thenReturn(CompletableFuture.completedFuture(null));
+        when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(GITHUB_TRACKED_LINK));
+        when(githubHandler.handle(GITHUB_TRACKED_LINK)).thenReturn(CompletableFuture.completedFuture(null));
 
         linkUpdateService.checkForUpdates();
 
-        verify(githubHandler).handle(githubLink);
-        verify(linkOperationRepository).updateLastCheckedTime(eq(githubLink), any());
+        verify(githubHandler).handle(GITHUB_TRACKED_LINK);
+        verify(linkOperationRepository).updateLastCheckedTime(eq(GITHUB_TRACKED_LINK), any());
     }
 
     @Test
     void shouldCheckForStackOverflowUpdates() {
-        TrackedLink stackOverflowLink = new TrackedLink(
-                2L,
-                "https://stackoverflow.com/questions/123",
-                List.of(),
-                List.of(),
-                LocalDateTime.now(),
-                LocalDateTime.now());
-        when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(stackOverflowLink));
-        when(stackoverflowHandler.handle(stackOverflowLink)).thenReturn(CompletableFuture.completedFuture(null));
+        when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(STACKOVERFLOW_TRACKED_LINK));
+        when(stackoverflowHandler.handle(STACKOVERFLOW_TRACKED_LINK))
+                .thenReturn(CompletableFuture.completedFuture(null));
 
         linkUpdateService.checkForUpdates();
 
-        verify(stackoverflowHandler).handle(stackOverflowLink);
-        verify(linkOperationRepository).updateLastCheckedTime(eq(stackOverflowLink), any());
+        verify(stackoverflowHandler).handle(STACKOVERFLOW_TRACKED_LINK);
+        verify(linkOperationRepository).updateLastCheckedTime(eq(STACKOVERFLOW_TRACKED_LINK), any());
     }
 
     @Test
     void shouldSkipUnknownLinks() {
-        TrackedLink unknownLink = new TrackedLink(
-                3L, "https://unknown.com/resource", List.of(), List.of(), LocalDateTime.now(), LocalDateTime.now());
-        when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(unknownLink));
+        when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(UNKNOWN_TRACKED_LINK));
 
         linkUpdateService.checkForUpdates();
 
         verifyNoInteractions(githubHandler, stackoverflowHandler);
-        verify(linkOperationRepository, never()).updateLastCheckedTime(eq(unknownLink), any());
+        verify(linkOperationRepository, never()).updateLastCheckedTime(eq(UNKNOWN_TRACKED_LINK), any());
     }
 }

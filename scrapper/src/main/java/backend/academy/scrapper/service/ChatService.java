@@ -32,5 +32,10 @@ public class ChatService {
     public void updateNotificationMode(Long chatId, UpdateNotificationModeRequest updateNotificationModeRequest) {
         chatOperationRepository.updateNotificationMode(
                 chatId, updateNotificationModeRequest.mode(), updateNotificationModeRequest.digestTime());
+        log.atInfo()
+                .setMessage("Successfully updated notification mode")
+                .addKeyValue("chatId", chatId)
+                .addKeyValue("mode", updateNotificationModeRequest.mode())
+                .log();
     }
 }

@@ -1,5 +1,19 @@
 package backend.academy.bot.command.command;
 
+import static backend.academy.bot.TestData.CMD_REMOVE_FILTER;
+import static backend.academy.bot.TestData.EXTRA_ARGUMENT;
+import static backend.academy.bot.TestData.INVALID_FILTER_COUNT;
+import static backend.academy.bot.TestData.REMOVE_FILTER_ERROR_FILTER_COUNT;
+import static backend.academy.bot.TestData.REMOVE_FILTER_ERROR_TAG_REMOVE;
+import static backend.academy.bot.TestData.REMOVE_FILTER_PROMPT_FILTER_NAME;
+import static backend.academy.bot.TestData.REMOVE_FILTER_PROMPT_FILTER_URL;
+import static backend.academy.bot.TestData.REMOVE_FILTER_SUCCESS_FILTER_REMOVED;
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_CHAT_ID;
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_TEXT;
+import static backend.academy.bot.TestData.TEST_CHAT_ID;
+import static backend.academy.bot.TestData.TEST_URL;
+import static backend.academy.bot.TestData.USAGE_REMOVE_FILTER;
+import static backend.academy.bot.TestData.VALID_FILTER_COUNT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
@@ -26,7 +40,6 @@ class RemoveFilterCommandTest {
     private RemoveFilterCommand removeFilterCommand;
     private Update update;
     private Message message;
-    private Chat chat;
 
     @BeforeEach
     void setUp() {
@@ -37,105 +50,116 @@ class RemoveFilterCommandTest {
 
         update = mock(Update.class);
         message = mock(Message.class);
-        chat = mock(Chat.class);
+        Chat chat = mock(Chat.class);
 
         when(update.message()).thenReturn(message);
         when(message.chat()).thenReturn(chat);
-        when(chat.id()).thenReturn(123L);
+        when(chat.id()).thenReturn(TEST_CHAT_ID);
     }
 
     @Test
     void shouldReturnUsageErrorForExtraArguments() {
-        when(message.text()).thenReturn("/removefilter extra");
+        when(message.text()).thenReturn(CMD_REMOVE_FILTER + EXTRA_ARGUMENT);
         removeFilterCommand.execute(update, bot);
 
         Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Использование: /removefilter")));
+                .execute(argThat(
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(USAGE_REMOVE_FILTER)));
     }
 
     @Test
     void shouldStartRemoveFilterDialog() {
-        when(message.text()).thenReturn("/removefilter");
-        assertThat(dialogService.getDialog(123L)).isNull();
+        when(message.text()).thenReturn(CMD_REMOVE_FILTER);
+        assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
 
         removeFilterCommand.execute(update, bot);
 
-        TrackingContext context = dialogService.getDialog(123L);
+        TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context).isNotNull();
         assertThat(context.dialogType()).isEqualTo(DialogType.REMOVE_FILTER);
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_URL);
 
         Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Укажите ссылку для удаления фильтра.")));
+                .execute(argThat(msg -> msg.getParameters()
+                                .get(TELEGRAM_PARAM_CHAT_ID)
+                                .equals(TEST_CHAT_ID)
+                        && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_FILTER_PROMPT_FILTER_URL)));
     }
 
     @Test
     void shouldProcessValidUrlAndPromptFilter() {
-        when(message.text()).thenReturn("/removefilter");
+        when(message.text()).thenReturn(CMD_REMOVE_FILTER);
         removeFilterCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         removeFilterCommand.execute(update, bot);
 
-        TrackingContext ctx = dialogService.getDialog(123L);
-        assertThat(ctx.url()).isEqualTo("http://example.com");
+        TrackingContext ctx = dialogService.getDialog(TEST_CHAT_ID);
+        assertThat(ctx.url()).isEqualTo(TEST_URL);
         assertThat(ctx.trackState()).isEqualTo(TrackState.AWAITING_FILTER);
 
         Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Укажите фильтр для удаления.")));
+                .execute(argThat(msg -> msg.getParameters()
+                                .get(TELEGRAM_PARAM_CHAT_ID)
+                                .equals(TEST_CHAT_ID)
+                        && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_FILTER_PROMPT_FILTER_NAME)));
     }
 
     @Test
     void shouldProcessInvalidFilterCount() {
-        when(message.text()).thenReturn("/removefilter");
+        when(message.text()).thenReturn(CMD_REMOVE_FILTER);
         removeFilterCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         removeFilterCommand.execute(update, bot);
-        when(message.text()).thenReturn("filter1 filter2");
+        when(message.text()).thenReturn(INVALID_FILTER_COUNT);
         removeFilterCommand.execute(update, bot);
 
         Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Введите один фильтр для удаления у ссылки.")));
+                .execute(argThat(msg -> msg.getParameters()
+                                .get(TELEGRAM_PARAM_CHAT_ID)
+                                .equals(TEST_CHAT_ID)
+                        && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_FILTER_ERROR_FILTER_COUNT)));
 
-        TrackingContext context = dialogService.getDialog(123L);
+        TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context).isNotNull();
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_FILTER);
     }
 
     @Test
     void shouldProcessFilterInputAndCallRemoveFilterSuccessfully() {
-        when(message.text()).thenReturn("/removefilter");
+        when(message.text()).thenReturn(CMD_REMOVE_FILTER);
         removeFilterCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         removeFilterCommand.execute(update, bot);
-        when(message.text()).thenReturn("filter1");
-        when(commandService.removeFilterFromTrackedLink(123L, "http://example.com", "filter1"))
+        when(message.text()).thenReturn(VALID_FILTER_COUNT);
+        when(commandService.removeFilterFromTrackedLink(TEST_CHAT_ID, TEST_URL, VALID_FILTER_COUNT))
                 .thenReturn(Mono.just(true));
         removeFilterCommand.execute(update, bot);
 
         Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Фильтр удален успешно.")));
-        assertThat(dialogService.getDialog(123L)).isNull();
+                .execute(argThat(msg -> msg.getParameters()
+                                .get(TELEGRAM_PARAM_CHAT_ID)
+                                .equals(TEST_CHAT_ID)
+                        && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_FILTER_SUCCESS_FILTER_REMOVED)));
+        assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
     }
 
     @Test
     void shouldProcessFilterInputAndCallRemoveFilterFailure() {
-        when(message.text()).thenReturn("/removefilter");
+        when(message.text()).thenReturn(CMD_REMOVE_FILTER);
         removeFilterCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         removeFilterCommand.execute(update, bot);
-        when(message.text()).thenReturn("filter1");
-        when(commandService.removeFilterFromTrackedLink(123L, "http://example.com", "filter1"))
+        when(message.text()).thenReturn(VALID_FILTER_COUNT);
+        when(commandService.removeFilterFromTrackedLink(TEST_CHAT_ID, TEST_URL, VALID_FILTER_COUNT))
                 .thenReturn(Mono.just(false));
         removeFilterCommand.execute(update, bot);
 
         Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Ошибка! Фильтр не удален.")));
-        assertThat(dialogService.getDialog(123L)).isNull();
+                .execute(argThat(msg -> msg.getParameters()
+                                .get(TELEGRAM_PARAM_CHAT_ID)
+                                .equals(TEST_CHAT_ID)
+                        && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_FILTER_ERROR_TAG_REMOVE)));
+        assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
     }
 }

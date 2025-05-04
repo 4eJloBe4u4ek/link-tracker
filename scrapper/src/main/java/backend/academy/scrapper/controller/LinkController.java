@@ -1,5 +1,6 @@
 package backend.academy.scrapper.controller;
 
+import backend.academy.scrapper.ratelimiter.RateLimited;
 import backend.academy.scrapper.service.LinkService;
 import backend.academy.shared.dto.AddLinkRequest;
 import backend.academy.shared.dto.LinkResponse;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class LinkController {
     private final LinkService linkService;
 
+    @RateLimited
     @GetMapping("/links")
     public ResponseEntity<ListLinksResponse> getLinksByChat(@RequestHeader("Tg-Chat-Id") Long chatId) {
         log.atInfo()
@@ -32,6 +34,7 @@ public class LinkController {
         return ResponseEntity.status(HttpStatus.OK).body(linkService.getLinksByChat(chatId));
     }
 
+    @RateLimited
     @PostMapping(value = "/links")
     public ResponseEntity<LinkResponse> addLink(
             @RequestHeader("Tg-Chat-Id") Long chatId, @RequestBody AddLinkRequest addLinkRequest) {
@@ -43,6 +46,7 @@ public class LinkController {
         return ResponseEntity.status(HttpStatus.OK).body(linkService.addLink(chatId, addLinkRequest));
     }
 
+    @RateLimited
     @DeleteMapping("/links")
     public ResponseEntity<LinkResponse> deleteLink(
             @RequestHeader("Tg-Chat-Id") Long chatId, @RequestBody RemoveLinkRequest removeLinkRequest) {
@@ -54,6 +58,7 @@ public class LinkController {
         return ResponseEntity.status(HttpStatus.OK).body(linkService.removeLink(chatId, removeLinkRequest));
     }
 
+    @RateLimited
     @GetMapping("/links/by-tag")
     public ResponseEntity<ListLinksResponse> getLinksByChatAndTag(
             @RequestHeader("Tg-Chat-Id") Long chatId, @RequestParam("tag") String tag) {

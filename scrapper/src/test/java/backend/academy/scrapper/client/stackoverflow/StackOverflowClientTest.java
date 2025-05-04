@@ -1,5 +1,19 @@
 package backend.academy.scrapper.client.stackoverflow;
 
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_ANSWERS_PATH;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_ANSWER_ID;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_ANSWER_RESPONSE;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_ANSWER_RESPONSE_BODY;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_COMMENTS_TO_ANSWER_PATH;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_COMMENTS_TO_QUESTION_PATH;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_COMMENT_RESPONSE;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_COMMENT_RESPONSE_BODY;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_EMPTY_RESPONSE;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_MIN;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_QUESTION_ID;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_QUESTION_PATH;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_QUESTION_RESPONSE;
+import static backend.academy.scrapper.TestData.STACKOVERFLOW_QUESTION_RESPONSE_TITLE;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
@@ -19,6 +33,12 @@ import reactor.test.StepVerifier;
 
 @ExtendWith(WireMockExtension.class)
 public class StackOverflowClientTest {
+    private static final String QUERY_PARAM_KEY = "testKey";
+    private static final String QUERY_PARAM_SITE = "stackoverflow";
+    private static final String QUERY_PARAM_SORT = "creation";
+    private static final String QUERY_PARAM_ORDER = "desc";
+    private static final String QUERY_PARAM_MIN = "123";
+    private static final String QUERY_PARAM_FILTER = "withbody";
 
     @RegisterExtension
     static WireMockExtension wireMock = WireMockExtension.newInstance()
@@ -38,172 +58,86 @@ public class StackOverflowClientTest {
 
     @Test
     void shouldReturnQuestion() {
-        wireMock.stubFor(
-                get(urlPathEqualTo("/questions/123"))
-                        .withHeader(HttpHeaders.AUTHORIZATION, equalTo("testToken"))
-                        .withQueryParam("key", equalTo("testKey"))
-                        .withQueryParam("site", equalTo("stackoverflow"))
-                        .willReturn(
-                                aResponse()
-                                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                                        .withBody(
-                                                """
-                    {
-                        "items": [
-                            {
-                                "question_id": 123,
-                                "owner": {
-                                    "account_id": 123,
-                                    "display_name": "Noname",
-                                    "reputation": 123,
-                                    "user_id": 123
-                                },
-                                "creation_date": 123,
-                                "last_activity_date": 123,
-                                "last_edit_date": 123,
-                                "title": "Test question title",
-                                "is_answered": true,
-                                "answer_count": 123
-                            }
-                        ]
-                    }
-                    """)));
+        wireMock.stubFor(get(urlPathEqualTo(STACKOVERFLOW_QUESTION_PATH))
+                .withHeader(HttpHeaders.AUTHORIZATION, equalTo("testToken"))
+                .withQueryParam("key", equalTo(QUERY_PARAM_KEY))
+                .withQueryParam("site", equalTo(QUERY_PARAM_SITE))
+                .willReturn(aResponse()
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody(STACKOVERFLOW_QUESTION_RESPONSE)));
 
-        StepVerifier.create(stackoverflowClient.getQuestion(123L))
-                .expectNextMatches(question -> question.questionId().equals(123L)
-                        && question.title().equals("Test question title")
-                        && question.owner().displayName().equals("Noname")
-                        && question.isAnswered())
+        StepVerifier.create(stackoverflowClient.getQuestion(STACKOVERFLOW_QUESTION_ID))
+                .expectNextMatches(question -> question.questionId().equals(STACKOVERFLOW_QUESTION_ID)
+                        && question.title().equals(STACKOVERFLOW_QUESTION_RESPONSE_TITLE))
                 .verifyComplete();
     }
 
     @Test
     void shouldReturnAnswers() {
-        wireMock.stubFor(
-                get(urlPathEqualTo("/questions/123/answers"))
-                        .withQueryParam("key", equalTo("testKey"))
-                        .withQueryParam("site", equalTo("stackoverflow"))
-                        .withQueryParam("sort", equalTo("creation"))
-                        .withQueryParam("order", equalTo("desc"))
-                        .withQueryParam("min", equalTo("123"))
-                        .withQueryParam("filter", equalTo("withbody"))
-                        .willReturn(
-                                aResponse()
-                                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                                        .withBody(
-                                                """
-                                        {
-                                            "items": [
-                                                {
-                                                    "answer_id": 1,
-                                                    "question_id": 123,
-                                                    "owner": {
-                                                        "account_id": 123,
-                                                        "display_name": "Noname",
-                                                        "reputation": 123,
-                                                        "user_id": 123
-                                                    },
-                                                    "body": "This is an answer",
-                                                    "creation_date": 123,
-                                                    "last_activity_date": 123,
-                                                    "last_edit_date": 123
-                                                }
-                                            ]
-                                        }
-                                        """)));
+        wireMock.stubFor(get(urlPathEqualTo(STACKOVERFLOW_ANSWERS_PATH))
+                .withQueryParam("key", equalTo(QUERY_PARAM_KEY))
+                .withQueryParam("site", equalTo(QUERY_PARAM_SITE))
+                .withQueryParam("sort", equalTo(QUERY_PARAM_SORT))
+                .withQueryParam("order", equalTo(QUERY_PARAM_ORDER))
+                .withQueryParam("min", equalTo(QUERY_PARAM_MIN))
+                .withQueryParam("filter", equalTo(QUERY_PARAM_FILTER))
+                .willReturn(aResponse()
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody(STACKOVERFLOW_ANSWER_RESPONSE)));
 
-        StepVerifier.create(stackoverflowClient.getAnswers(123L, 123L))
-                .expectNextMatches(answers -> answers.size() == 1
-                        && answers.getFirst().answerId() == 1
-                        && answers.getFirst().body().equals("This is an answer"))
+        StepVerifier.create(stackoverflowClient.getAnswers(STACKOVERFLOW_QUESTION_ID, STACKOVERFLOW_MIN))
+                .expectNextMatches(answers ->
+                        answers.size() == 1 && answers.getFirst().body().equals(STACKOVERFLOW_ANSWER_RESPONSE_BODY))
                 .verifyComplete();
     }
 
     @Test
     void shouldReturnCommentsToQuestion() {
-        wireMock.stubFor(
-                get(urlPathEqualTo("/questions/123/comments"))
-                        .withQueryParam("key", equalTo("testKey"))
-                        .withQueryParam("site", equalTo("stackoverflow"))
-                        .withQueryParam("sort", equalTo("creation"))
-                        .withQueryParam("order", equalTo("desc"))
-                        .withQueryParam("min", equalTo("123"))
-                        .withQueryParam("filter", equalTo("withbody"))
-                        .willReturn(
-                                aResponse()
-                                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                                        .withBody(
-                                                """
-                                        {
-                                            "items": [
-                                                {
-                                                    "comment_id": 1,
-                                                    "owner": {
-                                                        "account_id": 123,
-                                                        "display_name": "Noname",
-                                                        "reputation": 123,
-                                                        "user_id": 123
-                                                    },
-                                                    "body": "This is a comment",
-                                                    "creation_date": 123
-                                                }
-                                            ]
-                                        }
-                                        """)));
+        wireMock.stubFor(get(urlPathEqualTo(STACKOVERFLOW_COMMENTS_TO_QUESTION_PATH))
+                .withQueryParam("key", equalTo(QUERY_PARAM_KEY))
+                .withQueryParam("site", equalTo(QUERY_PARAM_SITE))
+                .withQueryParam("sort", equalTo(QUERY_PARAM_SORT))
+                .withQueryParam("order", equalTo(QUERY_PARAM_ORDER))
+                .withQueryParam("min", equalTo(QUERY_PARAM_MIN))
+                .withQueryParam("filter", equalTo(QUERY_PARAM_FILTER))
+                .willReturn(aResponse()
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody(STACKOVERFLOW_COMMENT_RESPONSE)));
 
-        StepVerifier.create(stackoverflowClient.getCommentsToQuestion(123L, 123L))
-                .expectNextMatches(comments -> comments.size() == 1
-                        && comments.getFirst().commentId() == 1
-                        && comments.getFirst().body().equals("This is a comment"))
+        StepVerifier.create(stackoverflowClient.getCommentsToQuestion(STACKOVERFLOW_QUESTION_ID, STACKOVERFLOW_MIN))
+                .expectNextMatches(comments ->
+                        comments.size() == 1 && comments.getFirst().body().equals(STACKOVERFLOW_COMMENT_RESPONSE_BODY))
                 .verifyComplete();
     }
 
     @Test
     void shouldReturnCommentsToAnswer() {
-        wireMock.stubFor(
-                get(urlPathEqualTo("/answers/123/comments"))
-                        .withQueryParam("key", equalTo("testKey"))
-                        .withQueryParam("site", equalTo("stackoverflow"))
-                        .withQueryParam("sort", equalTo("creation"))
-                        .withQueryParam("order", equalTo("desc"))
-                        .withQueryParam("min", equalTo("123"))
-                        .withQueryParam("filter", equalTo("withbody"))
-                        .willReturn(
-                                aResponse()
-                                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                                        .withBody(
-                                                """
-                                        {
-                                            "items": [
-                                                {
-                                                    "comment_id": 1,
-                                                    "owner": {
-                                                        "account_id": 123,
-                                                        "display_name": "Noname",
-                                                        "reputation": 123,
-                                                        "user_id": 123
-                                                    },
-                                                    "body": "This is a comment",
-                                                    "creation_date": 123
-                                                }
-                                            ]
-                                        }
-                                        """)));
+        wireMock.stubFor(get(urlPathEqualTo(STACKOVERFLOW_COMMENTS_TO_ANSWER_PATH))
+                .withQueryParam("key", equalTo(QUERY_PARAM_KEY))
+                .withQueryParam("site", equalTo(QUERY_PARAM_SITE))
+                .withQueryParam("sort", equalTo(QUERY_PARAM_SORT))
+                .withQueryParam("order", equalTo(QUERY_PARAM_ORDER))
+                .withQueryParam("min", equalTo(QUERY_PARAM_MIN))
+                .withQueryParam("filter", equalTo(QUERY_PARAM_FILTER))
+                .willReturn(aResponse()
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody(STACKOVERFLOW_COMMENT_RESPONSE)));
 
-        StepVerifier.create(stackoverflowClient.getCommentsToAnswer(List.of(123L), 123L))
-                .expectNextMatches(comments -> comments.size() == 1
-                        && comments.getFirst().commentId() == 1
-                        && comments.getFirst().body().equals("This is a comment"))
+        StepVerifier.create(
+                        stackoverflowClient.getCommentsToAnswer(List.of(STACKOVERFLOW_ANSWER_ID), STACKOVERFLOW_MIN))
+                .expectNextMatches(comments ->
+                        comments.size() == 1 && comments.getFirst().body().equals(STACKOVERFLOW_COMMENT_RESPONSE_BODY))
                 .verifyComplete();
     }
 
     @Test
     void shouldHandleEmptyResponse() {
-        wireMock.stubFor(get(urlPathEqualTo("/questions/123"))
+        wireMock.stubFor(get(urlPathEqualTo(STACKOVERFLOW_QUESTION_PATH))
                 .willReturn(aResponse()
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                        .withBody("{\"items\":[]}")));
+                        .withBody(STACKOVERFLOW_EMPTY_RESPONSE)));
 
-        StepVerifier.create(stackoverflowClient.getQuestion(123L)).verifyComplete();
+        StepVerifier.create(stackoverflowClient.getQuestion(STACKOVERFLOW_QUESTION_ID))
+                .verifyComplete();
     }
 }

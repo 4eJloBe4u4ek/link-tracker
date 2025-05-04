@@ -1,5 +1,14 @@
 package backend.academy.bot.command.command;
 
+import static backend.academy.bot.TestData.CMD_LIST;
+import static backend.academy.bot.TestData.EXTRA_ARGUMENT;
+import static backend.academy.bot.TestData.LIST_EMPTY_MESSAGE;
+import static backend.academy.bot.TestData.LIST_HEADER_MESSAGE;
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_CHAT_ID;
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_TEXT;
+import static backend.academy.bot.TestData.TEST_CHAT_ID;
+import static backend.academy.bot.TestData.TEST_URL;
+import static backend.academy.bot.TestData.USAGE_LIST;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -20,7 +29,6 @@ class ListCommandTest {
     private ListCommand listCommand;
     private Update update;
     private Message message;
-    private Chat chat;
 
     @BeforeEach
     void setUp() {
@@ -31,56 +39,55 @@ class ListCommandTest {
 
         update = mock(Update.class);
         message = mock(Message.class);
-        chat = mock(Chat.class);
+        Chat chat = mock(Chat.class);
 
         when(update.message()).thenReturn(message);
         when(message.chat()).thenReturn(chat);
-        when(chat.id()).thenReturn(123L);
+        when(chat.id()).thenReturn(TEST_CHAT_ID);
     }
 
     @Test
     void shouldReturnEmptyListMessageWhenNoLinks() {
-        when(message.text()).thenReturn("/list");
-        when(commandService.getTrackedLinks(123L)).thenReturn(Mono.just(List.of()));
+        when(message.text()).thenReturn(CMD_LIST);
+        when(commandService.getTrackedLinks(TEST_CHAT_ID)).thenReturn(Mono.just(List.of()));
 
         listCommand.execute(update, bot);
 
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
-                        msg -> msg.getParameters().get("chat_id").equals(123L)
-                                && msg.getParameters().get("text").equals("Список отслеживаемых ссылок пуст.")));
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(LIST_EMPTY_MESSAGE)));
     }
 
     @Test
     void shouldReturnTrackedLinks() {
-        when(message.text()).thenReturn("/list");
-        when(commandService.getTrackedLinks(123L))
-                .thenReturn(Mono.just(List.of(
-                        "https://github.com/pengrad/java-telegram-bot-api", "https://stackoverflow.com/questions")));
-
-        listCommand.execute(update, bot);
-
-        Mockito.verify(bot)
-                .execute(Mockito.argThat(msg -> msg.getParameters()
-                                .get("chat_id")
-                                .equals(123L)
-                        && msg.getParameters().get("text").toString().contains("Список отслеживаемых ссылок:")
-                        && msg.getParameters()
-                                .get("text")
-                                .toString()
-                                .contains("https://github.com/pengrad/java-telegram-bot-api")
-                        && msg.getParameters().get("text").toString().contains("https://stackoverflow.com/questions")));
-    }
-
-    @Test
-    void shouldReturnUsageErrorForExtraArguments() {
-        when(message.text()).thenReturn("/list extra");
+        when(message.text()).thenReturn(CMD_LIST);
+        when(commandService.getTrackedLinks(TEST_CHAT_ID)).thenReturn(Mono.just(List.of(TEST_URL)));
 
         listCommand.execute(update, bot);
 
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
-                        msg -> msg.getParameters().get("chat_id").equals(123L)
-                                && msg.getParameters().get("text").equals("Использование: /list")));
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters()
+                                        .get(TELEGRAM_PARAM_TEXT)
+                                        .toString()
+                                        .contains(LIST_HEADER_MESSAGE)
+                                && msg.getParameters()
+                                        .get(TELEGRAM_PARAM_TEXT)
+                                        .toString()
+                                        .contains(TEST_URL)));
+    }
+
+    @Test
+    void shouldReturnUsageErrorForExtraArguments() {
+        when(message.text()).thenReturn(CMD_LIST + EXTRA_ARGUMENT);
+
+        listCommand.execute(update, bot);
+
+        Mockito.verify(bot)
+                .execute(Mockito.argThat(
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(USAGE_LIST)));
     }
 }

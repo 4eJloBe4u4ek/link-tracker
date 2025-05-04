@@ -37,6 +37,10 @@
 
         <springdoc.version>2.8.4</springdoc.version>
         <bucket4j-spring-boot-starter.version>0.12.8</bucket4j-spring-boot-starter.version>
+        <resilience4j-spring-boot3.version>2.2.0</resilience4j-spring-boot3.version>
+        <resilience4j-reactor.version>2.2.0</resilience4j-reactor.version>
+        <bucket4j-redis.version>8.10.0</bucket4j-redis.version>
+        <lettuce-core.version>6.5.5.RELEASE</lettuce-core.version>
 
         <java-telegram-bot-api.version>7.11.0</java-telegram-bot-api.version>
         <wiremock.version>3.10.0</wiremock.version>
@@ -127,6 +131,26 @@
                 <groupId>com.giffing.bucket4j.spring.boot.starter</groupId>
                 <artifactId>bucket4j-spring-boot-starter</artifactId>
                 <version>${bucket4j-spring-boot-starter.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.resilience4j</groupId>
+                <artifactId>resilience4j-spring-boot3</artifactId>
+                <version>${resilience4j-spring-boot3.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.resilience4j</groupId>
+                <artifactId>resilience4j-reactor</artifactId>
+                <version>${resilience4j-reactor.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.bucket4j</groupId>
+                <artifactId>bucket4j-redis</artifactId>
+                <version>${bucket4j-redis.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.lettuce</groupId>
+                <artifactId>lettuce-core</artifactId>
+                <version>${lettuce-core.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

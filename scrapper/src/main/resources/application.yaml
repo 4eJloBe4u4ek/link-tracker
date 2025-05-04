@@ -40,6 +40,55 @@ spring:
     cloud.zookeeper:
       config.enabled: false
       connect-string: localhost:2181
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+resilience4j:
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 400ms
+        retry-exceptions:
+          - org.springframework.web.reactive.function.client.WebClientResponseException.InternalServerError
+          - org.springframework.web.reactive.function.client.WebClientResponseException.ServiceUnavailable
+          - org.springframework.web.reactive.function.client.WebClientResponseException.BadGateway
+          - org.springframework.web.reactive.function.client.WebClientResponseException.GatewayTimeout
+          - java.net.ConnectException
+        exponential-backoff-multiplier: 2
+        enable-exponential-backoff: true
+    instances:
+      botClient:
+        base-config: default
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        failure-rate-threshold: 100
+        slow-call-rate-threshold: 100
+        slow-call-duration-threshold: 3s
+        permitted-number-of-calls-in-half-open-state: 1
+        sliding-window-size: 1
+        minimum-number-of-calls: 1
+        wait-duration-in-open-state: 3s
+        automatic-transition-from-open-to-half-open-enabled: false
+    instances:
+      botClient:
+        base-config: default
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 3s
+        cancel-running-future: false
+    instances:
+      botClient:
+        base-config: default
+
+bucket:
+  capacity: 10
+  duration: 1m
 
 server:
   port: 8081
@@ -54,4 +103,4 @@ logging:
     format:
       file: ecs
   file:
-    name: log.json
+    name: logs/log.json

@@ -23,6 +23,7 @@ public class UpdateScheduler {
 
     @Scheduled(cron = "0 * * * * *")
     public void sendDailyDigest() {
+        log.atInfo().setMessage("Triggering digest scheduler").log();
         notificationService.sendDailyDigest();
     }
 }
