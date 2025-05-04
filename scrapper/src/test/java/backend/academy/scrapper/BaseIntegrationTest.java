@@ -19,7 +19,7 @@ public abstract class BaseIntegrationTest {
     static {
         redis = new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
         kafka = new KafkaContainer("apache/kafka-native:3.8.1").withExposedPorts(9092);
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine")
+        postgres = new PostgreSQLContainer<>("postgres:latest")
                 .withExposedPorts(5432)
                 .withDatabaseName("local")
                 .withUsername("postgres")
