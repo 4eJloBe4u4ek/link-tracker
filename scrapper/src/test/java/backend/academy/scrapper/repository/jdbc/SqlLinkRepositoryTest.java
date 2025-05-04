@@ -13,7 +13,6 @@ import backend.academy.scrapper.exception.LinkAlreadyExistsException;
 import backend.academy.scrapper.exception.LinkNotFoundException;
 import backend.academy.shared.dto.TrackedLink;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -92,7 +91,7 @@ class SqlLinkRepositoryTest extends BaseIntegrationTest {
         LocalDateTime updateTime = jdbcTemplate.queryForObject(GET_UPDATED_AT_BY_URL, LocalDateTime.class, TEST_URL);
 
         assertThat(updateTime).isNotNull();
-        assertThat(updateTime.truncatedTo(ChronoUnit.MILLIS)).isEqualTo(lastCheckedTime.truncatedTo(ChronoUnit.MILLIS));
+        assertThat(updateTime.withNano(0)).isEqualTo(lastCheckedTime.withNano(0));
     }
 
     @Test

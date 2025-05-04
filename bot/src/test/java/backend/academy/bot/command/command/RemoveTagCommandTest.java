@@ -17,6 +17,8 @@ import static backend.academy.bot.TestData.VALID_TAG_COUNT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import backend.academy.bot.dialog.DialogService;
@@ -28,9 +30,11 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.request.SendMessage;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.mockito.ArgumentCaptor;
 import reactor.core.publisher.Mono;
 
 class RemoveTagCommandTest {
@@ -62,7 +66,7 @@ class RemoveTagCommandTest {
         when(message.text()).thenReturn(CMD_REMOVE_TAG + EXTRA_ARGUMENT);
         removeTagCommand.execute(update, bot);
 
-        Mockito.verify(bot)
+        verify(bot)
                 .execute(argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
                                 && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(USAGE_REMOVE_TAG)));
@@ -80,7 +84,7 @@ class RemoveTagCommandTest {
         assertThat(context.dialogType()).isEqualTo(DialogType.REMOVE_TAG);
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_URL);
 
-        Mockito.verify(bot)
+        verify(bot)
                 .execute(argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
                                 && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_TAG_PROMPT_TAG_URL)));
@@ -97,7 +101,7 @@ class RemoveTagCommandTest {
         assertThat(ctx.url()).isEqualTo(TEST_URL);
         assertThat(ctx.trackState()).isEqualTo(TrackState.AWAITING_TAG);
 
-        Mockito.verify(bot)
+        verify(bot)
                 .execute(argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
                                 && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_TAG_PROMPT_TAG_NAME)));
@@ -112,7 +116,7 @@ class RemoveTagCommandTest {
         when(message.text()).thenReturn(INVALID_TAG_COUNT);
         removeTagCommand.execute(update, bot);
 
-        Mockito.verify(bot)
+        verify(bot)
                 .execute(argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
                                 && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_TAG_ERROR_TAG_COUNT)));
@@ -133,7 +137,7 @@ class RemoveTagCommandTest {
                 .thenReturn(Mono.just(true));
         removeTagCommand.execute(update, bot);
 
-        Mockito.verify(bot)
+        verify(bot)
                 .execute(argThat(msg -> msg.getParameters()
                                 .get(TELEGRAM_PARAM_CHAT_ID)
                                 .equals(TEST_CHAT_ID)
@@ -152,10 +156,11 @@ class RemoveTagCommandTest {
                 .thenReturn(Mono.just(false));
         removeTagCommand.execute(update, bot);
 
-        Mockito.verify(bot)
-                .execute(argThat(
-                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
-                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_TAG_ERROR_TAG_REMOVE)));
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(bot, times(3)).execute(captor.capture());
+        List<SendMessage> calls = captor.getAllValues();
+        SendMessage third = calls.get(2);
+        assertThat(third.getParameters().get(TELEGRAM_PARAM_TEXT)).isEqualTo(REMOVE_TAG_ERROR_TAG_REMOVE);
         assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
     }
 }
