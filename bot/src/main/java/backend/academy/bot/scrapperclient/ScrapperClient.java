@@ -18,6 +18,7 @@ import io.github.resilience4j.reactor.retry.RetryOperator;
 import io.github.resilience4j.reactor.timelimiter.TimeLimiterOperator;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.timelimiter.TimeLimiter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -28,17 +29,20 @@ import reactor.core.publisher.Mono;
 
 @Component
 public class ScrapperClient {
-    private static final String BASE_URL = "http://localhost:8081";
     private final WebClient scrapperClient;
     private final Retry retry;
     private final CircuitBreaker circuitBreaker;
     private final TimeLimiter timeLimiter;
 
-    public ScrapperClient(Retry retry, CircuitBreaker circuitBreaker, TimeLimiter timeLimiter) {
+    public ScrapperClient(
+            @Value("${scrapper.base-url}") String baseUrl,
+            Retry retry,
+            CircuitBreaker circuitBreaker,
+            TimeLimiter timeLimiter) {
         this.retry = retry;
         this.circuitBreaker = circuitBreaker;
         this.timeLimiter = timeLimiter;
-        this.scrapperClient = WebClient.builder().baseUrl(BASE_URL).build();
+        this.scrapperClient = WebClient.builder().baseUrl(baseUrl).build();
     }
 
     public Mono<Void> registerChat(Long chatId, RegisterChatRequest registerChatRequest) {

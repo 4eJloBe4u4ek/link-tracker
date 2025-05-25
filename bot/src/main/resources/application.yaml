@@ -17,7 +17,7 @@ spring:
       ddl-auto: validate
     open-in-view: false
   kafka:
-    bootstrap-servers: localhost:19092
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
     consumer.properties:
       enable.auto.commit: false
       auto.offset.reset: earliest
@@ -32,8 +32,8 @@ spring:
       connect-string: localhost:2181
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
 
 resilience4j:
   retry:
@@ -79,6 +79,28 @@ resilience4j:
 bucket:
   capacity: 5
   duration: 1m
+
+management:
+  server:
+    port: 8090
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,health,info
+      base-path: /
+      path-mapping:
+        prometheus: metrics
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+
+scrapper:
+  base-url: ${SCRAPPER_BASE_URL:http://localhost:8081}
 
 server:
   port: 8080

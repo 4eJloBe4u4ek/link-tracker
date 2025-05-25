@@ -5,6 +5,8 @@ import backend.academy.scrapper.client.stackoverflow.StackOverflowQuestion;
 import backend.academy.scrapper.scheduler.service.NotificationService;
 import backend.academy.scrapper.scheduler.util.MessageFormatter;
 import backend.academy.shared.dto.TrackedLink;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -22,12 +24,14 @@ public class StackOverflowUpdateHandler {
     private final StackOverflowClient stackOverflowClient;
     private static final Pattern STACKOVERFLOW_LINK_PATTERN =
             Pattern.compile("^https://stackoverflow\\.com/questions/(\\d+)/?.*");
+    private final MeterRegistry meterRegistry;
 
     public static boolean isStackoverflowLink(String url) {
         return STACKOVERFLOW_LINK_PATTERN.matcher(url).matches();
     }
 
     public CompletableFuture<Void> handle(TrackedLink trackedLink) {
+        Timer.Sample sample = Timer.start(meterRegistry);
         Matcher matcher = STACKOVERFLOW_LINK_PATTERN.matcher(trackedLink.url());
         if (!matcher.matches()) {
             log.atWarn()
@@ -75,6 +79,7 @@ public class StackOverflowUpdateHandler {
                                                     stackoverflowComment.owner().displayName())))
                             .then();
                 })
+                .doFinally(sig -> sample.stop(meterRegistry.timer("custom_scrape_time", "type", "stackoverflow")))
                 .toFuture();
     }
 }

@@ -16,6 +16,7 @@ import backend.academy.scrapper.repository.jpa.repo.ChatLinkTagJpaRepository;
 import backend.academy.scrapper.repository.jpa.repo.FilterJpaRepository;
 import backend.academy.scrapper.repository.jpa.repo.LinkJpaRepository;
 import backend.academy.scrapper.repository.jpa.repo.TagJpaRepository;
+import backend.academy.shared.dto.LinkType;
 import backend.academy.shared.dto.TrackedLink;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -150,6 +151,14 @@ public class OrmLinkRepository extends BaseOrmRepository implements LinkOperatio
                 .map(ChatLinkFilterEntity::filter)
                 .map(FilterEntity::name)
                 .toList();
+    }
+
+    @Override
+    public Long countByType(LinkType linkType) {
+        return switch (linkType) {
+            case GITHUB -> linkJpaRepository.countGithubLinks();
+            case STACKOVERFLOW -> linkJpaRepository.countStackoverflowLinks();
+        };
     }
 
     private LinkEntity createNewLink(String url) {
