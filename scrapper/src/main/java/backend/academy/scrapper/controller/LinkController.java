@@ -2,6 +2,9 @@ package backend.academy.scrapper.controller;
 
 import backend.academy.scrapper.ratelimiter.RateLimited;
 import backend.academy.scrapper.service.LinkService;
+import backend.academy.shared.api.ApiEndpoints;
+import backend.academy.shared.api.ApiHeaders;
+import backend.academy.shared.api.ApiParams;
 import backend.academy.shared.dto.AddLinkRequest;
 import backend.academy.shared.dto.LinkResponse;
 import backend.academy.shared.dto.ListLinksResponse;
@@ -25,8 +28,8 @@ public class LinkController {
     private final LinkService linkService;
 
     @RateLimited
-    @GetMapping("/links")
-    public ResponseEntity<ListLinksResponse> getLinksByChat(@RequestHeader("Tg-Chat-Id") Long chatId) {
+    @GetMapping(ApiEndpoints.LINKS_BY_CHAT)
+    public ResponseEntity<ListLinksResponse> getLinksByChat(@RequestHeader(ApiHeaders.TG_CHAT_ID) Long chatId) {
         log.atInfo()
                 .setMessage("Getting links by chat")
                 .addKeyValue("chatId", chatId)
@@ -35,9 +38,9 @@ public class LinkController {
     }
 
     @RateLimited
-    @PostMapping(value = "/links")
+    @PostMapping(ApiEndpoints.LINKS_ADD)
     public ResponseEntity<LinkResponse> addLink(
-            @RequestHeader("Tg-Chat-Id") Long chatId, @RequestBody AddLinkRequest addLinkRequest) {
+            @RequestHeader(ApiHeaders.TG_CHAT_ID) Long chatId, @RequestBody AddLinkRequest addLinkRequest) {
         log.atInfo()
                 .setMessage("Adding link")
                 .addKeyValue("chatId", chatId)
@@ -47,9 +50,9 @@ public class LinkController {
     }
 
     @RateLimited
-    @DeleteMapping("/links")
+    @DeleteMapping(ApiEndpoints.LINKS_DELETE)
     public ResponseEntity<LinkResponse> deleteLink(
-            @RequestHeader("Tg-Chat-Id") Long chatId, @RequestBody RemoveLinkRequest removeLinkRequest) {
+            @RequestHeader(ApiHeaders.TG_CHAT_ID) Long chatId, @RequestBody RemoveLinkRequest removeLinkRequest) {
         log.atInfo()
                 .setMessage("Deleting link")
                 .addKeyValue("chatId", chatId)
@@ -59,9 +62,9 @@ public class LinkController {
     }
 
     @RateLimited
-    @GetMapping("/links/by-tag")
+    @GetMapping(ApiEndpoints.LINKS_BY_TAG)
     public ResponseEntity<ListLinksResponse> getLinksByChatAndTag(
-            @RequestHeader("Tg-Chat-Id") Long chatId, @RequestParam("tag") String tag) {
+            @RequestHeader(ApiHeaders.TG_CHAT_ID) Long chatId, @RequestParam(ApiParams.TAG) String tag) {
         log.atInfo()
                 .setMessage("Getting links by chat and tag")
                 .addKeyValue("chatId", chatId)

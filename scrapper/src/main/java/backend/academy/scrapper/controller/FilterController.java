@@ -2,6 +2,8 @@ package backend.academy.scrapper.controller;
 
 import backend.academy.scrapper.ratelimiter.RateLimited;
 import backend.academy.scrapper.service.FilterService;
+import backend.academy.shared.api.ApiEndpoints;
+import backend.academy.shared.api.ApiHeaders;
 import backend.academy.shared.dto.AddFilterRequest;
 import backend.academy.shared.dto.RemoveFilterRequest;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +22,9 @@ public class FilterController {
     private final FilterService filterService;
 
     @RateLimited
-    @PostMapping("/filters/add")
+    @PostMapping(ApiEndpoints.FILTERS_ADD)
     public ResponseEntity<Void> addFilterToLink(
-            @RequestHeader("Tg-Chat-Id") Long chatId, @RequestBody AddFilterRequest addFilterRequest) {
+            @RequestHeader(ApiHeaders.TG_CHAT_ID) Long chatId, @RequestBody AddFilterRequest addFilterRequest) {
         log.atInfo()
                 .setMessage("Adding filter to link")
                 .addKeyValue("chatId", chatId)
@@ -34,9 +36,9 @@ public class FilterController {
     }
 
     @RateLimited
-    @DeleteMapping("/filters/remove")
+    @DeleteMapping(ApiEndpoints.FILTERS_REMOVE)
     public ResponseEntity<Void> removeFilterFromLink(
-            @RequestHeader("Tg-Chat-Id") Long chatId, @RequestBody RemoveFilterRequest removeFilterRequest) {
+            @RequestHeader(ApiHeaders.TG_CHAT_ID) Long chatId, @RequestBody RemoveFilterRequest removeFilterRequest) {
         log.atInfo()
                 .setMessage("Removing filter from link")
                 .addKeyValue("chatId", chatId)

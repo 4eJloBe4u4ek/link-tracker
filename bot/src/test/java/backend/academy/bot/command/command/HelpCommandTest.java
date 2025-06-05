@@ -58,10 +58,13 @@ class HelpCommandTest {
 
     @Test
     void shouldReturnHelpMessage() {
+        // Arrange
         when(message.text()).thenReturn(CMD_HELP);
 
+        // Act
         helpCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -81,10 +84,13 @@ class HelpCommandTest {
 
     @Test
     void shouldReturnUsageErrorForExtraArguments() {
+        // Arrange
         when(message.text()).thenReturn(CMD_HELP + EXTRA_ARGUMENT);
 
+        // Act
         helpCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)

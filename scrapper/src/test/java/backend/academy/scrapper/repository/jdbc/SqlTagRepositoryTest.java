@@ -50,8 +50,10 @@ class SqlTagRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldAddTagToLink() {
+        // Act
         sqlTagRepository.addTagToLink(TEST_CHAT_ID, TEST_URL, TEST_TAG);
 
+        // Assert
         Long tagId = jdbcTemplate.queryForObject(SELECT_TAG_ID, (rs, rowNum) -> rs.getLong("id"), TEST_TAG);
         assertThat(tagId).isNotNull();
 
@@ -65,16 +67,18 @@ class SqlTagRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkNotTrackedByChat() {
+        // Act & Assert
         Long otherChatId = 9999L;
-
         assertThrows(LinkNotFoundException.class, () -> sqlTagRepository.addTagToLink(otherChatId, TEST_URL, TEST_TAG));
     }
 
     @Test
     @Transactional
     void shouldThrowExceptionIfTagAlreadyExists() {
+        // Arrange
         sqlTagRepository.addTagToLink(TEST_CHAT_ID, TEST_URL, TEST_TAG);
 
+        // Act & Assert
         assertThrows(
                 TagAlreadyExistsException.class, () -> sqlTagRepository.addTagToLink(TEST_CHAT_ID, TEST_URL, TEST_TAG));
     }
@@ -82,9 +86,13 @@ class SqlTagRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldRemoveTagFromLink() {
+        // Arrange
         sqlTagRepository.addTagToLink(TEST_CHAT_ID, TEST_URL, TEST_TAG);
+
+        // Act
         sqlTagRepository.removeTagFromLink(TEST_CHAT_ID, TEST_URL, TEST_TAG);
 
+        // Assert
         Optional<Long> chatLinkTagId = jdbcTemplate
                 .query(SELECT_TAG_ID_FROM_CHAT_LINK_TAG, (rs, rowNum) -> rs.getLong("tag_id"), TEST_CHAT_ID, TEST_URL)
                 .stream()
@@ -96,6 +104,7 @@ class SqlTagRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfTagDoesNotExist() {
+        // Act & Assert
         assertThrows(
                 TagNotFoundException.class,
                 () -> sqlTagRepository.removeTagFromLink(TEST_CHAT_ID, TEST_URL, "nonexistent-tag"));
@@ -104,8 +113,10 @@ class SqlTagRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkHasNoTag() {
+        // Arrange
         sqlTagRepository.addTagToLink(TEST_CHAT_ID, TEST_URL, TEST_TAG);
 
+        // Act & Assert
         assertThrows(
                 TagNotFoundException.class,
                 () -> sqlTagRepository.removeTagFromLink(TEST_CHAT_ID, TEST_URL, "nonexistent-tag"));

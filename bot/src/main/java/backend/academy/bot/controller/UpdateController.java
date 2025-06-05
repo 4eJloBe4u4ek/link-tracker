@@ -2,6 +2,7 @@ package backend.academy.bot.controller;
 
 import backend.academy.bot.ratelimiter.RateLimited;
 import backend.academy.bot.service.UpdateService;
+import backend.academy.shared.api.ApiEndpoints;
 import backend.academy.shared.dto.LinkUpdate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +18,7 @@ public class UpdateController {
     private final UpdateService updateService;
 
     @RateLimited
-    @PostMapping("/updates")
+    @PostMapping(ApiEndpoints.UPDATES)
     public ResponseEntity<Void> updateLink(@RequestBody LinkUpdate update) {
         log.atInfo()
                 .setMessage("Getting link update by http")

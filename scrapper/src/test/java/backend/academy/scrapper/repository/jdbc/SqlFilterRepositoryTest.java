@@ -50,8 +50,10 @@ class SqlFilterRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldAddFilterToLink() {
+        // Act
         sqlFilterRepository.addFilterToLink(TEST_CHAT_ID, TEST_URL, TEST_FILTER);
 
+        // Assert
         Long filterId = jdbcTemplate.queryForObject(SELECT_FILTER_ID, (rs, rowNum) -> rs.getLong("id"), TEST_FILTER);
         assertThat(filterId).isNotNull();
 
@@ -69,8 +71,8 @@ class SqlFilterRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkNotTrackedByChat() {
+        // Act & Assert
         Long otherChatId = 9999L;
-
         assertThrows(
                 LinkNotFoundException.class,
                 () -> sqlFilterRepository.addFilterToLink(otherChatId, TEST_URL, TEST_FILTER));
@@ -79,8 +81,10 @@ class SqlFilterRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfFilterAlreadyExists() {
+        // Arrange
         sqlFilterRepository.addFilterToLink(TEST_CHAT_ID, TEST_URL, TEST_FILTER);
 
+        // Act & Assert
         assertThrows(
                 FilterAlreadyExistsException.class,
                 () -> sqlFilterRepository.addFilterToLink(TEST_CHAT_ID, TEST_URL, TEST_FILTER));
@@ -89,9 +93,13 @@ class SqlFilterRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldRemoveFilterFromLink() {
+        // Arrange
         sqlFilterRepository.addFilterToLink(TEST_CHAT_ID, TEST_URL, TEST_FILTER);
+
+        // Act
         sqlFilterRepository.removeFilterFromLink(TEST_CHAT_ID, TEST_URL, TEST_FILTER);
 
+        // Assert
         Optional<Long> chatLinkFilterId = jdbcTemplate
                 .query(
                         SELECT_FILTER_ID_FROM_CHAT_LINK_FILTER,
@@ -107,6 +115,7 @@ class SqlFilterRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfFilterDoesNotExist() {
+        // Act & Assert
         assertThrows(
                 FilterNotFoundException.class,
                 () -> sqlFilterRepository.removeFilterFromLink(TEST_CHAT_ID, TEST_URL, "nonexistent-filter"));
@@ -115,8 +124,10 @@ class SqlFilterRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkHasNoFilter() {
+        // Arrange
         sqlFilterRepository.addFilterToLink(TEST_CHAT_ID, TEST_URL, TEST_FILTER);
 
+        // Act & Assert
         assertThrows(
                 FilterNotFoundException.class,
                 () -> sqlFilterRepository.removeFilterFromLink(TEST_CHAT_ID, TEST_URL, "nonexistent-filter"));

@@ -77,8 +77,10 @@ class OrmFilterRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldAddFilterToLink() {
+        // Act
         ormFilterRepository.addFilterToLink(chat.id(), link.url(), TEST_FILTER);
 
+        // Assert
         Optional<FilterEntity> filter = filterJpaRepository.findByName(TEST_FILTER);
         assertThat(filter).isPresent();
         assertThat(chatLinkFilterJpaRepository.findByChatAndLinkAndFilter(chat, link, filter.orElseThrow()))
@@ -88,11 +90,13 @@ class OrmFilterRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkNotTrackedByChat() {
+        // Arrange
         ChatEntity otherChat = new ChatEntity();
         Long otherChatId = 9999L;
         otherChat.id(otherChatId);
         chatJpaRepository.save(otherChat);
 
+        // Act & Assert
         assertThrows(
                 LinkNotFoundException.class,
                 () -> ormFilterRepository.addFilterToLink(otherChat.id(), link.url(), TEST_FILTER));
@@ -101,8 +105,10 @@ class OrmFilterRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfFilterAlreadyExists() {
+        // Arrange
         ormFilterRepository.addFilterToLink(chat.id(), link.url(), TEST_FILTER);
 
+        // Act & Assert
         assertThrows(
                 FilterAlreadyExistsException.class,
                 () -> ormFilterRepository.addFilterToLink(chat.id(), link.url(), TEST_FILTER));
@@ -111,10 +117,13 @@ class OrmFilterRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldRemoveFilterFromLink() {
+        // Arrange
         ormFilterRepository.addFilterToLink(chat.id(), link.url(), TEST_FILTER);
 
+        // Act
         ormFilterRepository.removeFilterFromLink(chat.id(), link.url(), TEST_FILTER);
 
+        // Assert
         Optional<FilterEntity> filter = filterJpaRepository.findByName(TEST_FILTER);
         List<ChatLinkFilterEntity> chatLinkFilterList = chatLinkFilterJpaRepository.findByChatAndLink(chat, link);
         assertThat(filter).isEmpty();
@@ -124,9 +133,11 @@ class OrmFilterRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfFilterDoesNotExist() {
-        String otherFilterName = "otherFilter";
+        // Arrange
         ormFilterRepository.addFilterToLink(chat.id(), link.url(), TEST_FILTER);
 
+        // Act & Assert
+        String otherFilterName = "otherFilter";
         assertThrows(
                 FilterNotFoundException.class,
                 () -> ormFilterRepository.removeFilterFromLink(chat.id(), link.url(), otherFilterName));
@@ -135,6 +146,7 @@ class OrmFilterRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkHasNoFilter() {
+        // Arrange
         String otherFilterName = "otherFilter";
         Long otherChatId = 9999L;
         ChatEntity otherChat = new ChatEntity();
@@ -142,10 +154,10 @@ class OrmFilterRepositoryTest extends BaseIntegrationTest {
         otherChat.createdAt(LocalDateTime.now());
         otherChat.links().add(link);
         chatJpaRepository.save(otherChat);
-
         ormFilterRepository.addFilterToLink(chat.id(), link.url(), TEST_FILTER);
         ormFilterRepository.addFilterToLink(otherChat.id(), link.url(), otherFilterName);
 
+        // Act & Assert
         assertThrows(
                 FilterNotFoundException.class,
                 () -> ormFilterRepository.removeFilterFromLink(chat.id(), link.url(), otherFilterName));

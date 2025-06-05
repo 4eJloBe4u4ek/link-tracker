@@ -24,14 +24,14 @@ import org.mockito.Mockito;
 import org.springframework.context.ApplicationContext;
 
 class CommandHandlerTest {
-    TelegramBot bot = mock(TelegramBot.class);
-    DialogService dialogService = mock(DialogService.class);
-    ApplicationContext context = mock(ApplicationContext.class);
-    Update update = mock(Update.class);
-    Message message = mock(Message.class);
-    Chat chat = mock(Chat.class);
-    SimpleMeterRegistry registry;
-    CommandHandler commandHandler;
+    private final TelegramBot bot = mock(TelegramBot.class);
+    private final DialogService dialogService = mock(DialogService.class);
+    private final ApplicationContext context = mock(ApplicationContext.class);
+    private final Update update = mock(Update.class);
+    private final Message message = mock(Message.class);
+    private final Chat chat = mock(Chat.class);
+    private SimpleMeterRegistry registry;
+    private CommandHandler commandHandler;
 
     @BeforeEach
     void setUp() {
@@ -48,13 +48,16 @@ class CommandHandlerTest {
 
     @Test
     void shouldSendErrorForUnknownCommand() {
+        // Arrange
         when(update.message()).thenReturn(message);
         when(message.chat()).thenReturn(chat);
         when(chat.id()).thenReturn(TEST_CHAT_ID);
         when(message.text()).thenReturn(UNKNOWN_COMMAND_INPUT);
 
+        // Act
         commandHandler.handleCommand(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -63,15 +66,18 @@ class CommandHandlerTest {
 
     @Test
     void shouldIncrementCustomUserMessagesCounter() {
+        // Arrange
         when(update.message()).thenReturn(message);
         when(update.message()).thenReturn(message);
         when(message.chat()).thenReturn(chat);
         when(chat.id()).thenReturn(TEST_CHAT_ID);
         when(message.text()).thenReturn(UNKNOWN_COMMAND_INPUT);
+        Counter counter = registry.find("custom_user_messages_total").counter();
 
+        // Act
         commandHandler.handleCommand(update, bot);
 
-        Counter counter = registry.find("custom_user_messages_total").counter();
+        // Assert
         Assertions.assertNotNull(counter);
         Assertions.assertEquals(1, counter.count());
     }

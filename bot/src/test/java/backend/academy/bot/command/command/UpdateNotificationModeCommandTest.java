@@ -61,9 +61,13 @@ class UpdateNotificationModeCommandTest {
 
     @Test
     void shouldReturnUsageErrorForExtraArguments() {
+        // Arrange
         when(message.text()).thenReturn(CMD_SET_MODE + EXTRA_ARGUMENT);
+
+        // Act
         command.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -72,15 +76,17 @@ class UpdateNotificationModeCommandTest {
 
     @Test
     void shouldInitiateUpdateModeDialog() {
+        // Arrange
         when(message.text()).thenReturn(CMD_SET_MODE);
 
+        // Act
         command.execute(update, bot);
 
+        // Assert
         TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context).isNotNull();
         assertThat(context.dialogType()).isEqualTo(DialogType.UPDATE_NOTIFICATION_MODE);
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_NOTIFICATION_MODE);
-
         verify(bot)
                 .execute(argThat((SendMessage m) ->
                         m.getParameters().get(TELEGRAM_PARAM_TEXT).toString().contains(SET_MODE_MODE_PROMPT)));
@@ -88,16 +94,18 @@ class UpdateNotificationModeCommandTest {
 
     @Test
     void shouldUpdateToImmediateMode() {
+        // Arrange
         dialogService.startDialog(TEST_CHAT_ID, DialogType.UPDATE_NOTIFICATION_MODE);
         TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         context.trackState(TrackState.AWAITING_NOTIFICATION_MODE);
-
         when(message.text()).thenReturn("1");
         when(commandService.updateNotificationMode(TEST_CHAT_ID, NotificationMode.IMMEDIATE, null))
                 .thenReturn(Mono.just(true));
 
+        // Act
         command.execute(update, bot);
 
+        // Assert
         assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
         verify(bot)
                 .execute(argThat((SendMessage m) ->
@@ -106,18 +114,19 @@ class UpdateNotificationModeCommandTest {
 
     @Test
     void shouldStartDigestFlowAfterChoice() {
+        // Arrange
         dialogService.startDialog(TEST_CHAT_ID, DialogType.UPDATE_NOTIFICATION_MODE);
         TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         context.trackState(TrackState.AWAITING_NOTIFICATION_MODE);
-
         when(message.text()).thenReturn("2");
 
+        // Act
         command.execute(update, bot);
 
+        // Assert
         context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context.notificationMode()).isEqualTo(NotificationMode.DAILY_DIGEST);
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_NOTIFICATION_TIME);
-
         verify(bot)
                 .execute(argThat((SendMessage m) ->
                         m.getParameters().get(TELEGRAM_PARAM_TEXT).toString().contains(ENTER_TIME_PROMPT)));
@@ -125,14 +134,16 @@ class UpdateNotificationModeCommandTest {
 
     @Test
     void shouldRejectInvalidModeChoice() {
+        // Arrange
         dialogService.startDialog(TEST_CHAT_ID, DialogType.UPDATE_NOTIFICATION_MODE);
         TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         context.trackState(TrackState.AWAITING_NOTIFICATION_MODE);
-
         when(message.text()).thenReturn("3");
 
+        // Act
         command.execute(update, bot);
 
+        // Assert
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_NOTIFICATION_MODE);
         verify(bot)
                 .execute(argThat((SendMessage m) ->
@@ -141,15 +152,17 @@ class UpdateNotificationModeCommandTest {
 
     @Test
     void shouldRejectInvalidTimeFormat() {
+        // Arrange
         dialogService.startDialog(TEST_CHAT_ID, DialogType.UPDATE_NOTIFICATION_MODE);
         TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         context.trackState(TrackState.AWAITING_NOTIFICATION_TIME);
         context.notificationMode(NotificationMode.DAILY_DIGEST);
-
         when(message.text()).thenReturn(INVALID_TIME);
 
+        // Act
         command.execute(update, bot);
 
+        // Assert
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_NOTIFICATION_TIME);
         verify(bot)
                 .execute(argThat((SendMessage m) ->
@@ -158,18 +171,20 @@ class UpdateNotificationModeCommandTest {
 
     @Test
     void shouldUpdateDigestModeAfterTimeEntry() {
+        // Arrange
         dialogService.startDialog(TEST_CHAT_ID, DialogType.UPDATE_NOTIFICATION_MODE);
         TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         context.trackState(TrackState.AWAITING_NOTIFICATION_TIME);
         context.notificationMode(NotificationMode.DAILY_DIGEST);
-
         when(message.text()).thenReturn(VALID_TIME);
         when(commandService.updateNotificationMode(
                         TEST_CHAT_ID, NotificationMode.DAILY_DIGEST, LocalTime.parse(VALID_TIME)))
                 .thenReturn(Mono.just(true));
 
+        // Act
         command.execute(update, bot);
 
+        // Assert
         assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
         verify(bot)
                 .execute(argThat((SendMessage m) ->

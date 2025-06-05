@@ -62,10 +62,13 @@ class TrackCommandTest {
 
     @Test
     void shouldReturnUsageErrorForExtraArguments() {
+        // Arrange
         when(message.text()).thenReturn(CMD_TRACK + EXTRA_ARGUMENT);
 
+        // Act
         trackCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -74,10 +77,13 @@ class TrackCommandTest {
 
     @Test
     void shouldStartTrackDialog() {
+        // Arrange
         when(message.text()).thenReturn(CMD_TRACK);
 
+        // Act
         trackCommand.execute(update, bot);
 
+        // Assert
         assertThat(dialogService.getDialog(TEST_CHAT_ID).dialogType()).isEqualTo(DialogType.TRACK);
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
@@ -87,15 +93,18 @@ class TrackCommandTest {
 
     @Test
     void shouldProcessValidUrlSuccessfully() {
+        // Arrange
         when(message.text()).thenReturn(CMD_TRACK);
         trackCommand.execute(update, bot);
         when(message.text()).thenReturn(TEST_URL);
+
+        // Act
         trackCommand.execute(update, bot);
 
+        // Assert
         TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context.url()).isEqualTo(TEST_URL);
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_TAGS);
-
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -104,18 +113,21 @@ class TrackCommandTest {
 
     @Test
     void shouldProcessTagsInputSuccessfully() {
+        // Arrange
         when(message.text()).thenReturn(CMD_TRACK);
         trackCommand.execute(update, bot);
         when(message.text()).thenReturn(TEST_URL);
         trackCommand.execute(update, bot);
         when(message.text()).thenReturn(TAGS_INPUT);
+
+        // Act
         trackCommand.execute(update, bot);
 
+        // Assert
         TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         List<String> tags = context.tags();
         assertThat(tags).isEqualTo(EXPECTED_TAGS);
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_FILTERS);
-
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -124,6 +136,7 @@ class TrackCommandTest {
 
     @Test
     void shouldProcessFiltersInputAndCallTrackLinkSuccessfully() {
+        // Arrange
         when(message.text()).thenReturn(CMD_TRACK);
         trackCommand.execute(update, bot);
         when(message.text()).thenReturn(TEST_URL);
@@ -134,8 +147,10 @@ class TrackCommandTest {
         when(commandService.trackLink(TEST_CHAT_ID, TEST_URL, EXPECTED_TAGS, EXPECTED_FILTERS))
                 .thenReturn(Mono.just(true));
 
+        // Act
         trackCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -147,6 +162,7 @@ class TrackCommandTest {
 
     @Test
     void shouldProcessFiltersInputAndCallTrackLinkFailure() {
+        // Arrange
         when(message.text()).thenReturn(CMD_TRACK);
         trackCommand.execute(update, bot);
         when(message.text()).thenReturn(TEST_URL);
@@ -157,8 +173,10 @@ class TrackCommandTest {
         when(commandService.trackLink(TEST_CHAT_ID, TEST_URL, EXPECTED_TAGS, EXPECTED_FILTERS))
                 .thenReturn(Mono.just(false));
 
+        // Act
         trackCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)

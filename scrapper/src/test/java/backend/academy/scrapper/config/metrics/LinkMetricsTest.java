@@ -17,9 +17,9 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 
 class LinkMetricsTest {
-    SimpleMeterRegistry registry;
-    LinkOperationRepository linkOperationRepository = mock(LinkOperationRepository.class);
-    LinkMetrics metricsConfig = new LinkMetrics();
+    private SimpleMeterRegistry registry;
+    private final LinkOperationRepository linkOperationRepository = mock(LinkOperationRepository.class);
+    private final LinkMetrics metricsConfig = new LinkMetrics();
 
     @SneakyThrows
     @BeforeEach
@@ -41,12 +41,14 @@ class LinkMetricsTest {
 
     @Test
     void shouldRegisterGaugesCorrectly() {
+        // Act
         Gauge githubGauge =
                 registry.find("custom_active_links").tag("type", "github").gauge();
         Gauge stackoverflowGauge = registry.find("custom_active_links")
                 .tag("type", "stackoverflow")
                 .gauge();
 
+        // Assert
         Assertions.assertNotNull(githubGauge);
         Assertions.assertNotNull(stackoverflowGauge);
 

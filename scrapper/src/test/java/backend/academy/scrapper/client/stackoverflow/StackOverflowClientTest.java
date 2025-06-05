@@ -58,6 +58,7 @@ public class StackOverflowClientTest {
 
     @Test
     void shouldReturnQuestion() {
+        // Arrange
         wireMock.stubFor(get(urlPathEqualTo(STACKOVERFLOW_QUESTION_PATH))
                 .withHeader(HttpHeaders.AUTHORIZATION, equalTo("testToken"))
                 .withQueryParam("key", equalTo(QUERY_PARAM_KEY))
@@ -66,6 +67,7 @@ public class StackOverflowClientTest {
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .withBody(STACKOVERFLOW_QUESTION_RESPONSE)));
 
+        // Act & Assert
         StepVerifier.create(stackoverflowClient.getQuestion(STACKOVERFLOW_QUESTION_ID))
                 .expectNextMatches(question -> question.questionId().equals(STACKOVERFLOW_QUESTION_ID)
                         && question.title().equals(STACKOVERFLOW_QUESTION_RESPONSE_TITLE))
@@ -74,6 +76,7 @@ public class StackOverflowClientTest {
 
     @Test
     void shouldReturnAnswers() {
+        // Arrange
         wireMock.stubFor(get(urlPathEqualTo(STACKOVERFLOW_ANSWERS_PATH))
                 .withQueryParam("key", equalTo(QUERY_PARAM_KEY))
                 .withQueryParam("site", equalTo(QUERY_PARAM_SITE))
@@ -85,6 +88,7 @@ public class StackOverflowClientTest {
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .withBody(STACKOVERFLOW_ANSWER_RESPONSE)));
 
+        // Act & Assert
         StepVerifier.create(stackoverflowClient.getAnswers(STACKOVERFLOW_QUESTION_ID, STACKOVERFLOW_MIN))
                 .expectNextMatches(answers ->
                         answers.size() == 1 && answers.getFirst().body().equals(STACKOVERFLOW_ANSWER_RESPONSE_BODY))
@@ -93,6 +97,7 @@ public class StackOverflowClientTest {
 
     @Test
     void shouldReturnCommentsToQuestion() {
+        // Arrange
         wireMock.stubFor(get(urlPathEqualTo(STACKOVERFLOW_COMMENTS_TO_QUESTION_PATH))
                 .withQueryParam("key", equalTo(QUERY_PARAM_KEY))
                 .withQueryParam("site", equalTo(QUERY_PARAM_SITE))
@@ -104,6 +109,7 @@ public class StackOverflowClientTest {
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .withBody(STACKOVERFLOW_COMMENT_RESPONSE)));
 
+        // Act & Assert
         StepVerifier.create(stackoverflowClient.getCommentsToQuestion(STACKOVERFLOW_QUESTION_ID, STACKOVERFLOW_MIN))
                 .expectNextMatches(comments ->
                         comments.size() == 1 && comments.getFirst().body().equals(STACKOVERFLOW_COMMENT_RESPONSE_BODY))
@@ -112,6 +118,7 @@ public class StackOverflowClientTest {
 
     @Test
     void shouldReturnCommentsToAnswer() {
+        // Arrange
         wireMock.stubFor(get(urlPathEqualTo(STACKOVERFLOW_COMMENTS_TO_ANSWER_PATH))
                 .withQueryParam("key", equalTo(QUERY_PARAM_KEY))
                 .withQueryParam("site", equalTo(QUERY_PARAM_SITE))
@@ -123,6 +130,7 @@ public class StackOverflowClientTest {
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .withBody(STACKOVERFLOW_COMMENT_RESPONSE)));
 
+        // Act & Assert
         StepVerifier.create(
                         stackoverflowClient.getCommentsToAnswer(List.of(STACKOVERFLOW_ANSWER_ID), STACKOVERFLOW_MIN))
                 .expectNextMatches(comments ->
@@ -132,11 +140,13 @@ public class StackOverflowClientTest {
 
     @Test
     void shouldHandleEmptyResponse() {
+        // Arrange
         wireMock.stubFor(get(urlPathEqualTo(STACKOVERFLOW_QUESTION_PATH))
                 .willReturn(aResponse()
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .withBody(STACKOVERFLOW_EMPTY_RESPONSE)));
 
+        // Act & Assert
         StepVerifier.create(stackoverflowClient.getQuestion(STACKOVERFLOW_QUESTION_ID))
                 .verifyComplete();
     }

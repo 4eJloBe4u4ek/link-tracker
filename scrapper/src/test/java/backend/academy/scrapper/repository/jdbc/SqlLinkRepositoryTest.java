@@ -47,8 +47,10 @@ class SqlLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldAddLink() {
+        // Act
         TrackedLink trackedLink = sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
+        // Assert
         Integer countLinksWithId = jdbcTemplate.queryForObject(COUNT_LINKS_BY_URL, Integer.class, TEST_URL);
         assertThat(countLinksWithId).isEqualTo(1);
         assertThat(trackedLink.url()).isEqualTo(TEST_URL);
@@ -57,8 +59,10 @@ class SqlLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkAlreadyExists() {
+        // Arrange
         sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
+        // Act & Assert
         assertThrows(
                 LinkAlreadyExistsException.class,
                 () -> sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of()));
@@ -67,10 +71,13 @@ class SqlLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldRemoveLink() {
+        // Arrange
         sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
+        // Act
         sqlLinkRepository.removeLink(TEST_CHAT_ID, TEST_URL);
 
+        // Assert
         Integer countLinksWithId = jdbcTemplate.queryForObject(COUNT_LINKS_BY_URL, Integer.class, TEST_URL);
         assertThat(countLinksWithId).isEqualTo(0);
     }
@@ -78,18 +85,22 @@ class SqlLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkDoesNotExist() {
+        // Act & Assert
         assertThrows(LinkNotFoundException.class, () -> sqlLinkRepository.removeLink(TEST_CHAT_ID, TEST_URL));
     }
 
     @Test
     @Transactional
     void shouldUpdateLastCheckedTime() {
+        // Arrange
         TrackedLink trackedLink = sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
         LocalDateTime lastCheckedTime = LocalDateTime.now();
 
+        // Act
         sqlLinkRepository.updateLastCheckedTime(trackedLink, lastCheckedTime);
-        LocalDateTime updateTime = jdbcTemplate.queryForObject(GET_UPDATED_AT_BY_URL, LocalDateTime.class, TEST_URL);
 
+        // Assert
+        LocalDateTime updateTime = jdbcTemplate.queryForObject(GET_UPDATED_AT_BY_URL, LocalDateTime.class, TEST_URL);
         assertThat(updateTime).isNotNull();
         assertThat(updateTime.withNano(0)).isEqualTo(lastCheckedTime.withNano(0));
     }
@@ -97,10 +108,13 @@ class SqlLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldReturnLinksByChat() {
+        // Arrange
         sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
+        // Act
         List<TrackedLink> links = sqlLinkRepository.getLinksByChat(TEST_CHAT_ID, 0);
 
+        // Assert
         assertThat(links.size()).isEqualTo(1);
         assertThat(links.getFirst().url()).isEqualTo(TEST_URL);
     }
@@ -108,10 +122,13 @@ class SqlLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldReturnAllLinks() {
+        // Arrange
         sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
+        // Act
         List<TrackedLink> links = sqlLinkRepository.getAllLinks(0);
 
+        // Assert
         assertThat(links.size()).isEqualTo(1);
         assertThat(links.getFirst().url()).isEqualTo(TEST_URL);
     }
@@ -119,10 +136,13 @@ class SqlLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldReturnLinksByChatAndTag() {
+        // Arrange
         sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(TEST_TAG), List.of());
 
+        // Act
         List<TrackedLink> links = sqlLinkRepository.getLinksByChatAndTag(TEST_CHAT_ID, TEST_TAG, 0);
 
+        // Assert
         assertThat(links.size()).isEqualTo(1);
         assertThat(links.getFirst().url()).isEqualTo(TEST_URL);
         assertThat(links.getFirst().tags()).isEqualTo(List.of(TEST_TAG));
@@ -131,10 +151,13 @@ class SqlLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldReturnChatsForLink() {
+        // Arrange
         TrackedLink trackedLink = sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
+        // Act
         List<Long> chats = sqlLinkRepository.getChatsForLink(trackedLink, 0);
 
+        // Assert
         assertThat(chats.size()).isEqualTo(1);
         assertThat(chats.getFirst()).isEqualTo(TEST_CHAT_ID);
     }
@@ -142,10 +165,13 @@ class SqlLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldReturnFiltersForChatAndLink() {
+        // Arrange
         TrackedLink trackedLink = sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of(TEST_FILTER));
 
+        // Act
         List<String> filters = sqlLinkRepository.getFiltersForChatAndLink(TEST_CHAT_ID, trackedLink);
 
+        // Assert
         assertThat(filters.size()).isEqualTo(1);
         assertThat(filters.contains(TEST_FILTER)).isTrue();
     }

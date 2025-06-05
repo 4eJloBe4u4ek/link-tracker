@@ -48,11 +48,14 @@ class ListCommandTest {
 
     @Test
     void shouldReturnEmptyListMessageWhenNoLinks() {
+        // Arrange
         when(message.text()).thenReturn(CMD_LIST);
         when(commandService.getTrackedLinks(TEST_CHAT_ID)).thenReturn(Mono.just(List.of()));
 
+        // Act
         listCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -61,11 +64,14 @@ class ListCommandTest {
 
     @Test
     void shouldReturnTrackedLinks() {
+        // Arrange
         when(message.text()).thenReturn(CMD_LIST);
         when(commandService.getTrackedLinks(TEST_CHAT_ID)).thenReturn(Mono.just(List.of(TEST_URL)));
 
+        // Act
         listCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -81,10 +87,13 @@ class ListCommandTest {
 
     @Test
     void shouldReturnUsageErrorForExtraArguments() {
+        // Arrange
         when(message.text()).thenReturn(CMD_LIST + EXTRA_ARGUMENT);
 
+        // Act
         listCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)

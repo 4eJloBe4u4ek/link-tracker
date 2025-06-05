@@ -16,7 +16,6 @@ import backend.academy.scrapper.scheduler.service.NotificationService;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.time.LocalDateTime;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,28 +23,22 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 
 class ScrapeTimeMetricsTest {
-    SimpleMeterRegistry registry;
-    NotificationService notificationService;
-    LocalDateTime now = LocalDateTime.now();
-
-    GithubClient githubClient;
-    GithubUpdateHandler githubUpdateHandler;
-
-    StackOverflowClient stackOverflowClient;
-    StackOverflowUpdateHandler stackOverflowUpdateHandler;
+    private SimpleMeterRegistry registry;
+    private GithubUpdateHandler githubUpdateHandler;
+    private StackOverflowUpdateHandler stackOverflowUpdateHandler;
 
     @BeforeEach
     void setUp() {
         registry = new SimpleMeterRegistry();
         Metrics.globalRegistry.add(registry);
 
-        notificationService = mock(NotificationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
 
-        githubClient = mock(GithubClient.class);
+        GithubClient githubClient = mock(GithubClient.class);
         when(githubClient.getRepositoryUpdates(anyString(), anyString(), any())).thenReturn(Mono.empty());
         githubUpdateHandler = new GithubUpdateHandler(githubClient, notificationService, registry);
 
-        stackOverflowClient = mock(StackOverflowClient.class);
+        StackOverflowClient stackOverflowClient = mock(StackOverflowClient.class);
         when(stackOverflowClient.getStackoverflowUpdates(anyLong(), any())).thenReturn(Mono.empty());
         stackOverflowUpdateHandler = new StackOverflowUpdateHandler(notificationService, stackOverflowClient, registry);
     }
@@ -58,23 +51,25 @@ class ScrapeTimeMetricsTest {
 
     @Test
     void shouldRegisterGithubCustomScrapeTimeMetricsCorrectly() {
+        // Act
         CompletableFuture<Void> future = githubUpdateHandler.handle(GITHUB_TRACKED_LINK);
         future.join();
 
+        // Assert
         Timer timer = registry.find("custom_scrape_time").tag("type", "github").timer();
-
         assertNotNull(timer);
         assertEquals(1, timer.count());
     }
 
     @Test
     void shouldRegisterStackoverflowCustomScrapeTimeMetricsCorrectly() {
+        // Act
         CompletableFuture<Void> future = stackOverflowUpdateHandler.handle(STACKOVERFLOW_TRACKED_LINK);
         future.join();
 
+        // Assert
         Timer timer =
                 registry.find("custom_scrape_time").tag("type", "stackoverflow").timer();
-
         assertNotNull(timer);
         assertEquals(1, timer.count());
     }

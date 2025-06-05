@@ -10,14 +10,14 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.request.SendMessage;
 import org.springframework.stereotype.Component;
 
-@BotCommand(command = "/start", description = "Регистрация в боте.")
+@BotCommand(BotCommandInfo.START)
 @Component
 public class StartCommand extends AbstractNotificationModeCommand implements TelegramCommand {
     private static final NotificationModeCommandConfig CONFIG = new NotificationModeCommandConfig(
-            "/start",
+            BotCommandInfo.START.commandName(),
             DialogType.START,
-            "Использование: /start",
-            "Ошибка. Пожалуйста, начните с /start",
+            "Использование: " + BotCommandInfo.START.commandName(),
+            "Ошибка. Пожалуйста, начните с " + BotCommandInfo.START.commandName(),
             "Регистрация завершена!",
             "Чат уже существует!",
             "Произошла ошибка при регистрации чата.",

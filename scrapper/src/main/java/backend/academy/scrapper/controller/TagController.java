@@ -2,6 +2,8 @@ package backend.academy.scrapper.controller;
 
 import backend.academy.scrapper.ratelimiter.RateLimited;
 import backend.academy.scrapper.service.TagService;
+import backend.academy.shared.api.ApiEndpoints;
+import backend.academy.shared.api.ApiHeaders;
 import backend.academy.shared.dto.AddTagRequest;
 import backend.academy.shared.dto.RemoveTagRequest;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +22,9 @@ public class TagController {
     private final TagService tagService;
 
     @RateLimited
-    @PostMapping("/tags/add")
+    @PostMapping(ApiEndpoints.TAGS_ADD)
     public ResponseEntity<Void> addTagToLink(
-            @RequestHeader("Tg-Chat-Id") Long chatId, @RequestBody AddTagRequest addTagRequest) {
+            @RequestHeader(ApiHeaders.TG_CHAT_ID) Long chatId, @RequestBody AddTagRequest addTagRequest) {
         log.atInfo()
                 .setMessage("Adding tag to link")
                 .addKeyValue("chatId", chatId)
@@ -34,9 +36,9 @@ public class TagController {
     }
 
     @RateLimited
-    @DeleteMapping("/tags/remove")
+    @DeleteMapping(ApiEndpoints.TAGS_REMOVE)
     public ResponseEntity<Void> removeTagFromLink(
-            @RequestHeader("Tg-Chat-Id") Long chatId, @RequestBody RemoveTagRequest removeTagRequest) {
+            @RequestHeader(ApiHeaders.TG_CHAT_ID) Long chatId, @RequestBody RemoveTagRequest removeTagRequest) {
         log.atInfo()
                 .setMessage("Removing tag from link")
                 .addKeyValue("chatId", chatId)

@@ -1,5 +1,6 @@
 package backend.academy.scrapper.botclient;
 
+import backend.academy.shared.api.ApiEndpoints;
 import backend.academy.shared.dto.ApiErrorResponse;
 import backend.academy.shared.dto.LinkUpdate;
 import backend.academy.shared.exception.ApiException;
@@ -37,7 +38,7 @@ public class BotClient {
     public Mono<Void> updateLink(LinkUpdate update) {
         return botClient
                 .post()
-                .uri("/updates")
+                .uri(ApiEndpoints.UPDATES)
                 .body(BodyInserters.fromValue(update))
                 .retrieve()
                 .onStatus(HttpStatus.BAD_REQUEST::equals, response -> response.bodyToMono(ApiErrorResponse.class)

@@ -14,19 +14,18 @@ import com.pengrad.telegrambot.request.SendMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-@BotCommand(command = "/untrack", description = "Прекратить отслеживание ссылки.")
+@BotCommand(BotCommandInfo.UNTRACK)
 @Component
 @RequiredArgsConstructor
 public class UntrackCommand implements TelegramCommand {
-    private static final String COMMAND_NAME = "/untrack";
-    private static final String USAGE_MESSAGE = "Использование: " + COMMAND_NAME;
+    private static final String USAGE_MESSAGE = "Использование: " + BotCommandInfo.UNTRACK.commandName();
     private static final String INVALID_URL_MESSAGE = "Ссылка %s некорректна";
     private static final String SUCCESS_MESSAGE = "Ссылка %s больше не отслеживается";
     private static final String FAILURE_MESSAGE = "Ошибка! Невозможно прекратить отслеживание ссылки: %s";
     private static final String ERROR_MESSAGE = "Произошла ошибка при отмене отслеживания ссылки.";
     private static final String ENTER_URL_TO_UNTRACK = "Укажите ссылку для прекращения отслеживания.";
     private static final String UNKNOWN_STATE =
-            "Ошибка. Пожалуйста, начните прекращение отслеживания с " + COMMAND_NAME;
+            "Ошибка. Пожалуйста, начните прекращение отслеживания с " + BotCommandInfo.UNTRACK.commandName();
 
     private final CommandService commandService;
     private final DialogService dialogService;
@@ -37,7 +36,7 @@ public class UntrackCommand implements TelegramCommand {
         String message = update.message().text().trim();
         TrackingContext trackingContext = dialogService.getDialog(chatId);
 
-        if (message.startsWith(COMMAND_NAME) && trackingContext == null) {
+        if (message.startsWith(BotCommandInfo.UNTRACK.commandName()) && trackingContext == null) {
             DialogUtils.startDialogAndNotify(
                     dialogService,
                     chatId,
@@ -48,12 +47,16 @@ public class UntrackCommand implements TelegramCommand {
                     message,
                     ENTER_URL_TO_UNTRACK);
         } else {
-            switch (trackingContext.trackState()) {
-                case AWAITING_URL -> processUrlInput(chatId, bot, trackingContext, message);
-                default -> {
-                    bot.execute(new SendMessage(chatId, UNKNOWN_STATE));
-                    dialogService.endDialog(chatId);
-                }
+            handleTrackingState(bot, trackingContext, chatId, message);
+        }
+    }
+
+    private void handleTrackingState(TelegramBot bot, TrackingContext trackingContext, Long chatId, String message) {
+        switch (trackingContext.trackState()) {
+            case AWAITING_URL -> processUrlInput(chatId, bot, trackingContext, message);
+            default -> {
+                bot.execute(new SendMessage(chatId, UNKNOWN_STATE));
+                dialogService.endDialog(chatId);
             }
         }
     }

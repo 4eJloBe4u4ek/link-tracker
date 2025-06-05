@@ -1,5 +1,8 @@
 package backend.academy.bot.scrapperclient;
 
+import backend.academy.shared.api.ApiEndpoints;
+import backend.academy.shared.api.ApiHeaders;
+import backend.academy.shared.api.ApiParams;
 import backend.academy.shared.dto.AddFilterRequest;
 import backend.academy.shared.dto.AddLinkRequest;
 import backend.academy.shared.dto.AddTagRequest;
@@ -48,7 +51,7 @@ public class ScrapperClient {
     public Mono<Void> registerChat(Long chatId, RegisterChatRequest registerChatRequest) {
         return handleResponse(scrapperClient
                 .post()
-                .uri("/tg-chat/{id}", chatId)
+                .uri(ApiEndpoints.TG_CHAT_BY_ID, chatId)
                 .body(BodyInserters.fromValue(registerChatRequest))
                 .retrieve()
                 .onStatus(HttpStatus.BAD_REQUEST::equals, this::processErrors)
@@ -58,7 +61,7 @@ public class ScrapperClient {
     public Mono<Void> deleteChat(Long chatId) {
         return handleResponse(scrapperClient
                 .delete()
-                .uri("/tg-chat/{id}", chatId)
+                .uri(ApiEndpoints.TG_CHAT_BY_ID, chatId)
                 .retrieve()
                 .onStatus(HttpStatus.BAD_REQUEST::equals, this::processErrors)
                 .onStatus(HttpStatus.NOT_FOUND::equals, this::processErrors)
@@ -68,8 +71,8 @@ public class ScrapperClient {
     public Mono<ListLinksResponse> getTrackedLinks(Long chatId) {
         return handleResponse(scrapperClient
                 .get()
-                .uri("/links")
-                .header("Tg-Chat-Id", String.valueOf(chatId))
+                .uri(ApiEndpoints.LINKS_BY_CHAT)
+                .header(ApiHeaders.TG_CHAT_ID, String.valueOf(chatId))
                 .retrieve()
                 .onStatus(HttpStatus.BAD_REQUEST::equals, this::processErrors)
                 .bodyToMono(ListLinksResponse.class));
@@ -78,8 +81,8 @@ public class ScrapperClient {
     public Mono<LinkResponse> addTrackedLink(Long chatId, AddLinkRequest addLinkRequest) {
         return handleResponse(scrapperClient
                 .post()
-                .uri("/links")
-                .header("Tg-Chat-Id", String.valueOf(chatId))
+                .uri(ApiEndpoints.LINKS_ADD)
+                .header(ApiHeaders.TG_CHAT_ID, String.valueOf(chatId))
                 .body(BodyInserters.fromValue(addLinkRequest))
                 .retrieve()
                 .onStatus(HttpStatus.BAD_REQUEST::equals, this::processErrors)
@@ -89,8 +92,8 @@ public class ScrapperClient {
     public Mono<LinkResponse> deleteTrackedLink(Long chatId, RemoveLinkRequest removeLinkRequest) {
         return handleResponse(scrapperClient
                 .method(HttpMethod.DELETE)
-                .uri("/links")
-                .header("Tg-Chat-Id", String.valueOf(chatId))
+                .uri(ApiEndpoints.LINKS_DELETE)
+                .header(ApiHeaders.TG_CHAT_ID, String.valueOf(chatId))
                 .body(BodyInserters.fromValue(removeLinkRequest))
                 .retrieve()
                 .onStatus(HttpStatus.BAD_REQUEST::equals, this::processErrors)
@@ -101,8 +104,8 @@ public class ScrapperClient {
     public Mono<ListLinksResponse> getTrackedLinksByTag(Long chatId, String tag) {
         return handleResponse(scrapperClient
                 .get()
-                .uri("/links/by-tag?tag={tag}", tag)
-                .header("Tg-Chat-Id", String.valueOf(chatId))
+                .uri(ApiEndpoints.LINKS_BY_TAG + ApiParams.TAG_QUERY, tag)
+                .header(ApiHeaders.TG_CHAT_ID, String.valueOf(chatId))
                 .retrieve()
                 .onStatus(HttpStatus.BAD_REQUEST::equals, this::processErrors)
                 .bodyToMono(ListLinksResponse.class));
@@ -111,8 +114,8 @@ public class ScrapperClient {
     public Mono<Void> addTagToTrackedLink(Long chatId, AddTagRequest addTagRequest) {
         return handleResponse(scrapperClient
                 .post()
-                .uri("/tags/add")
-                .header("Tg-Chat-Id", String.valueOf(chatId))
+                .uri(ApiEndpoints.TAGS_ADD)
+                .header(ApiHeaders.TG_CHAT_ID, String.valueOf(chatId))
                 .body(BodyInserters.fromValue(addTagRequest))
                 .retrieve()
                 .onStatus(HttpStatus.BAD_REQUEST::equals, this::processErrors)
@@ -123,8 +126,8 @@ public class ScrapperClient {
     public Mono<Void> removeTagFromTrackedLink(Long chatId, RemoveTagRequest removeTagRequest) {
         return handleResponse(scrapperClient
                 .method(HttpMethod.DELETE)
-                .uri("/tags/remove")
-                .header("Tg-Chat-Id", String.valueOf(chatId))
+                .uri(ApiEndpoints.TAGS_REMOVE)
+                .header(ApiHeaders.TG_CHAT_ID, String.valueOf(chatId))
                 .body(BodyInserters.fromValue(removeTagRequest))
                 .retrieve()
                 .onStatus(HttpStatus.BAD_REQUEST::equals, this::processErrors)
@@ -135,8 +138,8 @@ public class ScrapperClient {
     public Mono<Void> addFilterToTrackedLink(Long chatId, AddFilterRequest addFilterRequest) {
         return handleResponse(scrapperClient
                 .post()
-                .uri("/filters/add")
-                .header("Tg-Chat-Id", String.valueOf(chatId))
+                .uri(ApiEndpoints.FILTERS_ADD)
+                .header(ApiHeaders.TG_CHAT_ID, String.valueOf(chatId))
                 .body(BodyInserters.fromValue(addFilterRequest))
                 .retrieve()
                 .onStatus(HttpStatus.BAD_REQUEST::equals, this::processErrors)
@@ -147,8 +150,8 @@ public class ScrapperClient {
     public Mono<Void> removeFilterFromTrackedLink(Long chatId, RemoveFilterRequest removeFilterRequest) {
         return handleResponse(scrapperClient
                 .method(HttpMethod.DELETE)
-                .uri("/filters/remove")
-                .header("Tg-Chat-Id", String.valueOf(chatId))
+                .uri(ApiEndpoints.FILTERS_REMOVE)
+                .header(ApiHeaders.TG_CHAT_ID, String.valueOf(chatId))
                 .body(BodyInserters.fromValue(removeFilterRequest))
                 .retrieve()
                 .onStatus(HttpStatus.BAD_REQUEST::equals, this::processErrors)
@@ -159,7 +162,7 @@ public class ScrapperClient {
     public Mono<Void> updateNotificationMode(Long chatId, UpdateNotificationModeRequest updateNotificationModeRequest) {
         return handleResponse(scrapperClient
                 .patch()
-                .uri("/tg-chat/{id}/notification", chatId)
+                .uri(ApiEndpoints.TG_CHAT_NOTIFICATION_BY_ID, chatId)
                 .body(BodyInserters.fromValue(updateNotificationModeRequest))
                 .retrieve()
                 .onStatus(HttpStatus.BAD_REQUEST::equals, this::processErrors)

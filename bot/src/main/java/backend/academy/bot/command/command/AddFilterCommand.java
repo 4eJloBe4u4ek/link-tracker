@@ -8,14 +8,14 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.request.SendMessage;
 import org.springframework.stereotype.Component;
 
-@BotCommand(command = "/addfilter", description = "Добавление фильтра к отслеживаемой ссылке.")
+@BotCommand(BotCommandInfo.ADD_FILTER)
 @Component
 public class AddFilterCommand extends AbstractFilterCommand {
     private static final FilterCommandConfig CONFIG = new FilterCommandConfig(
-            "/addfilter",
+            BotCommandInfo.ADD_FILTER.commandName(),
             DialogType.ADD_FILTER,
-            "Использование: /addfilter",
-            "Ошибка. Пожалуйста, начните с /addfilter",
+            "Использование: " + BotCommandInfo.ADD_FILTER.commandName(),
+            "Ошибка. Пожалуйста, начните с " + BotCommandInfo.ADD_FILTER.commandName(),
             "Укажите ссылку для добавления фильтра.",
             "Укажите фильтр для добавления к ссылке.",
             "Ссылка %s некорректна",

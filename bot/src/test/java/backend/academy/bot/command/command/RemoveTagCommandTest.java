@@ -63,9 +63,13 @@ class RemoveTagCommandTest {
 
     @Test
     void shouldReturnUsageErrorForExtraArguments() {
+        // Arrange
         when(message.text()).thenReturn(CMD_REMOVE_TAG + EXTRA_ARGUMENT);
+
+        // Act
         removeTagCommand.execute(update, bot);
 
+        // Assert
         verify(bot)
                 .execute(argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -74,16 +78,17 @@ class RemoveTagCommandTest {
 
     @Test
     void shouldStartRemoveTagDialog() {
+        // Arrange
         when(message.text()).thenReturn(CMD_REMOVE_TAG);
-        assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
 
+        // Act
         removeTagCommand.execute(update, bot);
 
+        // Assert
         TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context).isNotNull();
         assertThat(context.dialogType()).isEqualTo(DialogType.REMOVE_TAG);
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_URL);
-
         verify(bot)
                 .execute(argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -92,15 +97,18 @@ class RemoveTagCommandTest {
 
     @Test
     void shouldProcessValidUrlAndPromptTag() {
+        // Arrange
         when(message.text()).thenReturn(CMD_REMOVE_TAG);
         removeTagCommand.execute(update, bot);
         when(message.text()).thenReturn(TEST_URL);
+
+        // Act
         removeTagCommand.execute(update, bot);
 
+        // Assert
         TrackingContext ctx = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(ctx.url()).isEqualTo(TEST_URL);
         assertThat(ctx.trackState()).isEqualTo(TrackState.AWAITING_TAG);
-
         verify(bot)
                 .execute(argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -109,18 +117,21 @@ class RemoveTagCommandTest {
 
     @Test
     void shouldProcessInvalidTagCount() {
+        // Arrange
         when(message.text()).thenReturn(CMD_REMOVE_TAG);
         removeTagCommand.execute(update, bot);
         when(message.text()).thenReturn(TEST_URL);
         removeTagCommand.execute(update, bot);
         when(message.text()).thenReturn(INVALID_TAG_COUNT);
+
+        // Act
         removeTagCommand.execute(update, bot);
 
+        // Assert
         verify(bot)
                 .execute(argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
                                 && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_TAG_ERROR_TAG_COUNT)));
-
         TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context).isNotNull();
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_TAG);
@@ -128,6 +139,7 @@ class RemoveTagCommandTest {
 
     @Test
     void shouldProcessTagInputAndCallRemoveTagSuccessfully() {
+        // Arrange
         when(message.text()).thenReturn(CMD_REMOVE_TAG);
         removeTagCommand.execute(update, bot);
         when(message.text()).thenReturn(TEST_URL);
@@ -135,8 +147,11 @@ class RemoveTagCommandTest {
         when(message.text()).thenReturn(VALID_TAG_COUNT);
         when(commandService.removeTagFromTrackedLink(TEST_CHAT_ID, TEST_URL, VALID_TAG_COUNT))
                 .thenReturn(Mono.just(true));
+
+        // Act
         removeTagCommand.execute(update, bot);
 
+        // Assert
         verify(bot)
                 .execute(argThat(msg -> msg.getParameters()
                                 .get(TELEGRAM_PARAM_CHAT_ID)
@@ -147,6 +162,7 @@ class RemoveTagCommandTest {
 
     @Test
     void shouldProcessTagInputAndCallRemoveTagFailure() {
+        // Arrange
         when(message.text()).thenReturn(CMD_REMOVE_TAG);
         removeTagCommand.execute(update, bot);
         when(message.text()).thenReturn(TEST_URL);
@@ -154,8 +170,11 @@ class RemoveTagCommandTest {
         when(message.text()).thenReturn(VALID_TAG_COUNT);
         when(commandService.removeTagFromTrackedLink(TEST_CHAT_ID, TEST_URL, VALID_TAG_COUNT))
                 .thenReturn(Mono.just(false));
+
+        // Act
         removeTagCommand.execute(update, bot);
 
+        // Assert
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(bot, times(3)).execute(captor.capture());
         List<SendMessage> calls = captor.getAllValues();

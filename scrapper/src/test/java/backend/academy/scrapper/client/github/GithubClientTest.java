@@ -54,11 +54,13 @@ public class GithubClientTest {
 
     @Test
     void shouldReturnCommits() {
+        // Arrange
         wireMock.stubFor(get(urlPathEqualTo(GITHUB_COMMITS_PATH))
                 .willReturn(aResponse()
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .withBody(GITHUB_COMMITS_RESPONSE)));
 
+        // Act & Assert
         StepVerifier.create(githubClient.getCommits(GITHUB_OWNER, GITHUB_REPO, TEST_TIME))
                 .expectNextMatches(commits -> commits.size() == 1
                         && commits.getFirst().commit().message().equals(GITHUB_COMMITS_RESPONSE_MESSAGE))
@@ -67,11 +69,13 @@ public class GithubClientTest {
 
     @Test
     void shouldReturnIssues() {
+        // Arrange
         wireMock.stubFor(get(urlPathEqualTo(GITHUB_ISSUES_PATH))
                 .willReturn(aResponse()
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .withBody(GITHUB_ISSUES_RESPONSE)));
 
+        // Act & Assert
         StepVerifier.create(githubClient.getIssues(GITHUB_OWNER, GITHUB_REPO, TEST_TIME))
                 .expectNextMatches(issues ->
                         issues.size() == 1 && issues.getFirst().title().equals(GITHUB_ISSUES_RESPONSE_TITLE))
@@ -80,11 +84,13 @@ public class GithubClientTest {
 
     @Test
     void shouldReturnComments() {
+        // Arrange
         wireMock.stubFor(get(urlPathEqualTo(GITHUB_COMMENTS_PATH))
                 .willReturn(aResponse()
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .withBody(GITHUB_COMMENTS_RESPONSE)));
 
+        // Act & Assert
         StepVerifier.create(githubClient.getComments(GITHUB_OWNER, GITHUB_REPO, TEST_TIME))
                 .expectNextMatches(comments ->
                         comments.size() == 1 && comments.getFirst().body().equals(GITHUB_COMMENTS_RESPONSE_BODY))
@@ -93,11 +99,13 @@ public class GithubClientTest {
 
     @Test
     void shouldReturnPullRequests() {
+        // Arrange
         wireMock.stubFor(get(urlPathEqualTo(GITHUB_PULLS_PATH))
                 .willReturn(aResponse()
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .withBody(GITHUB_PULLS_RESPONSE)));
 
+        // Act & Assert
         StepVerifier.create(githubClient.getPullRequests(GITHUB_OWNER, GITHUB_REPO, LocalDateTime.parse(TEST_TIME)))
                 .expectNextMatches(
                         prs -> prs.size() == 1 && prs.getFirst().title().equals(GITHUB_PULLS_RESPONSE_TITLE))
@@ -106,11 +114,13 @@ public class GithubClientTest {
 
     @Test
     void shouldHandleEmptyResponse() {
+        // Arrange
         wireMock.stubFor(get(urlPathEqualTo(GITHUB_COMMITS_PATH))
                 .willReturn(aResponse()
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .withBody(GITHUB_EMPTY_RESPONSE)));
 
+        // Act & Assert
         StepVerifier.create(githubClient.getCommits(GITHUB_OWNER, GITHUB_REPO, TEST_TIME))
                 .expectNextMatches(List::isEmpty)
                 .verifyComplete();

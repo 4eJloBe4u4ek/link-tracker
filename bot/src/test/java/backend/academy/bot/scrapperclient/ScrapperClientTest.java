@@ -42,7 +42,7 @@ import reactor.test.StepVerifier;
             org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration.class
         })
 class ScrapperClientTest {
-    public static final String TG_CHAT_PATH = "/tg-chat/";
+    private static final String TG_CHAT_PATH = "/tg-chat/";
 
     @RegisterExtension
     static WireMockExtension wireMock = WireMockExtension.newInstance()
@@ -68,6 +68,7 @@ class ScrapperClientTest {
 
     @Test
     void shouldRetryOnServerErrorsAndSucceed() {
+        // Arrange
         int maxAttempts = scrapperRetry.getRetryConfig().getMaxAttempts();
 
         wireMock.stubFor(post(urlPathEqualTo(TG_CHAT_PATH + TEST_CHAT_ID))
@@ -89,23 +90,27 @@ class ScrapperClientTest {
                 .whenScenarioStateIs("retry" + (maxAttempts - 1))
                 .willReturn(aResponse().withStatus(HttpStatus.SC_OK)));
 
+        // Act
         Mono<Void> call = client.registerChat(TEST_CHAT_ID, new RegisterChatRequest(NotificationMode.IMMEDIATE, null));
 
+        // Assert
         StepVerifier.create(call).expectComplete().verify();
-
         wireMock.verify(maxAttempts, postRequestedFor(urlPathEqualTo(TG_CHAT_PATH + TEST_CHAT_ID)));
     }
 
     @Test
     void shouldNotRetryOnClientError() {
+        // Arrange
         wireMock.stubFor(post(urlPathEqualTo(TG_CHAT_PATH + TEST_CHAT_ID))
                 .willReturn(aResponse()
                         .withStatus(HttpStatus.SC_BAD_REQUEST)
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .withBody(CLIENT_ERROR_RESPONSE)));
 
+        // Act
         Mono<Void> call = client.registerChat(TEST_CHAT_ID, new RegisterChatRequest(NotificationMode.IMMEDIATE, null));
 
+        // Assert
         StepVerifier.create(call)
                 .expectErrorSatisfies(err -> assertInstanceOf(ApiException.class, err))
                 .verify(Duration.ofSeconds(2));
@@ -115,14 +120,17 @@ class ScrapperClientTest {
 
     @Test
     void shouldTimeoutWhenResponseIsDelayed() {
+        // Arrange
         long timeoutMillis =
                 scrapperTimeLimiter.getTimeLimiterConfig().getTimeoutDuration().toMillis();
 
         wireMock.stubFor(post(urlPathEqualTo(TG_CHAT_PATH + TEST_CHAT_ID))
                 .willReturn(aResponse().withFixedDelay((int) timeoutMillis + 100)));
 
+        // Act
         Mono<Void> call = client.registerChat(TEST_CHAT_ID, new RegisterChatRequest(NotificationMode.IMMEDIATE, null));
 
+        // Assert
         StepVerifier.create(call)
                 .expectErrorMatches(e -> e instanceof java.util.concurrent.TimeoutException)
                 .verify();
@@ -132,14 +140,15 @@ class ScrapperClientTest {
 
     @Test
     void shouldOpenCircuitBreakerAfterConsecutiveFailures() {
+        // Arrange
         int minCalls = scrapperCircuitBreaker.getCircuitBreakerConfig().getMinimumNumberOfCalls();
-
         wireMock.stubFor(post(urlPathEqualTo(TG_CHAT_PATH + TEST_CHAT_ID))
                 .willReturn(aResponse()
                         .withStatus(HttpStatus.SC_BAD_REQUEST)
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .withBody(CLIENT_ERROR_RESPONSE)));
 
+        // Act & Assert
         for (int i = 0; i < minCalls; i++) {
             StepVerifier.create(client.registerChat(
                             TEST_CHAT_ID, new RegisterChatRequest(NotificationMode.IMMEDIATE, null)))
@@ -152,6 +161,7 @@ class ScrapperClientTest {
                 .expectError(CallNotPermittedException.class)
                 .verify();
 
+        // Assert
         wireMock.verify(minCalls, postRequestedFor(urlPathEqualTo(TG_CHAT_PATH + TEST_CHAT_ID)));
     }
 }

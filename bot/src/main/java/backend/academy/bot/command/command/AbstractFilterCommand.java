@@ -1,5 +1,7 @@
 package backend.academy.bot.command.command;
 
+import static backend.academy.bot.command.Utils.SPACE_SPLIT_REGEX;
+
 import backend.academy.bot.command.TelegramCommand;
 import backend.academy.bot.dialog.DialogService;
 import backend.academy.bot.dialog.DialogType;
@@ -16,8 +18,6 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public abstract class AbstractFilterCommand implements TelegramCommand {
-    private static final String SPACE_SPLIT_REGEX = "\\s+";
-
     protected final CommandService commandService;
     protected final DialogService dialogService;
     protected final FilterCommandConfig filterCommandConfig;
@@ -39,18 +39,22 @@ public abstract class AbstractFilterCommand implements TelegramCommand {
                     message,
                     filterCommandConfig.enterUrl());
         } else if (trackingContext != null) {
-            switch (trackingContext.trackState()) {
-                case AWAITING_URL -> processUrlInput(chatId, bot, trackingContext, message);
-                case AWAITING_FILTER -> processFilterInput(chatId, bot, trackingContext, message);
-                default -> {
-                    bot.execute(new SendMessage(chatId, filterCommandConfig.unknownState()));
-                    dialogService.endDialog(chatId);
-                }
-            }
+            handleTrackingState(bot, trackingContext, chatId, message);
         }
     }
 
     protected abstract void performOperation(Long chatId, String url, String filter, TelegramBot bot);
+
+    private void handleTrackingState(TelegramBot bot, TrackingContext trackingContext, Long chatId, String message) {
+        switch (trackingContext.trackState()) {
+            case AWAITING_URL -> processUrlInput(chatId, bot, trackingContext, message);
+            case AWAITING_FILTER -> processFilterInput(chatId, bot, trackingContext, message);
+            default -> {
+                bot.execute(new SendMessage(chatId, filterCommandConfig.unknownState()));
+                dialogService.endDialog(chatId);
+            }
+        }
+    }
 
     private void processUrlInput(Long chatId, TelegramBot bot, TrackingContext trackingContext, String url) {
         if (!UrlChecker.isValidUrl(url)) {

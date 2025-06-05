@@ -59,9 +59,13 @@ class AddTagCommandTest {
 
     @Test
     void shouldReturnUsageErrorForExtraArguments() {
+        // Arrange
         when(message.text()).thenReturn(CMD_ADD_TAG + EXTRA_ARGUMENT);
+
+        // Act
         addTagCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -70,16 +74,18 @@ class AddTagCommandTest {
 
     @Test
     void shouldStartAddTagDialog() {
+        // Arrange
         when(message.text()).thenReturn(CMD_ADD_TAG);
         assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
 
+        // Act
         addTagCommand.execute(update, bot);
 
+        // Assert
         TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context).isNotNull();
         assertThat(context.dialogType()).isEqualTo(DialogType.ADD_TAG);
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_URL);
-
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -88,16 +94,18 @@ class AddTagCommandTest {
 
     @Test
     void shouldProcessValidUrlSuccessfully() {
+        // Arrange
         when(message.text()).thenReturn(CMD_ADD_TAG);
         addTagCommand.execute(update, bot);
-
         when(message.text()).thenReturn(TEST_URL);
+
+        // Act
         addTagCommand.execute(update, bot);
 
+        // Assert
         TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context.url()).isEqualTo(TEST_URL);
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_TAG);
-
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -106,14 +114,17 @@ class AddTagCommandTest {
 
     @Test
     void shouldProcessInvalidTagCount() {
+        // Arrange
         when(message.text()).thenReturn(CMD_ADD_TAG);
         addTagCommand.execute(update, bot);
         when(message.text()).thenReturn(TEST_URL);
         addTagCommand.execute(update, bot);
-
         when(message.text()).thenReturn(INVALID_TAG_COUNT);
+
+        // Act
         addTagCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -125,17 +136,19 @@ class AddTagCommandTest {
 
     @Test
     void shouldProcessTagInputAndCallAddTagSuccessfully() {
+        // Arrange
         when(message.text()).thenReturn(CMD_ADD_TAG);
         addTagCommand.execute(update, bot);
         when(message.text()).thenReturn(TEST_URL);
         addTagCommand.execute(update, bot);
-
         when(message.text()).thenReturn(VALID_TAG_COUNT);
         when(commandService.addTagToTrackedLink(TEST_CHAT_ID, TEST_URL, VALID_TAG_COUNT))
                 .thenReturn(Mono.just(true));
 
+        // Act
         addTagCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -145,17 +158,19 @@ class AddTagCommandTest {
 
     @Test
     void shouldProcessTagInputAndCallAddTagFailure() {
+        // Arrange
         when(message.text()).thenReturn(CMD_ADD_TAG);
         addTagCommand.execute(update, bot);
         when(message.text()).thenReturn(TEST_URL);
         addTagCommand.execute(update, bot);
-
         when(message.text()).thenReturn(VALID_TAG_COUNT);
         when(commandService.addTagToTrackedLink(TEST_CHAT_ID, TEST_URL, VALID_TAG_COUNT))
                 .thenReturn(Mono.just(false));
 
+        // Act
         addTagCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)

@@ -1,5 +1,7 @@
 package backend.academy.bot.command;
 
+import static backend.academy.bot.command.Utils.SPACE_SPLIT_REGEX;
+
 import backend.academy.bot.dialog.DialogService;
 import backend.academy.bot.dialog.TrackState;
 import backend.academy.bot.dialog.TrackingContext;
@@ -20,7 +22,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class CommandHandler {
-    private static final String SPACE_SPLIT_REGEX = "\\s+";
     private static final String UNKNOWN_COMMAND =
             "Неизвестная команда. Используйте /help для просмотра списка доступных команд.";
     private static final String USER_MESSAGES_COUNTER_NAME = "custom_user_messages_total";
@@ -77,8 +78,10 @@ public class CommandHandler {
         for (Object bean : beans.values()) {
             if (bean instanceof TelegramCommand command) {
                 BotCommand annotation = bean.getClass().getAnnotation(BotCommand.class);
-                botCommands.put(annotation.command(), command);
-                commandDescriptions.put(annotation.command(), annotation.description());
+                String commandName = annotation.value().commandName();
+                String commandDescription = annotation.value().commandDescription();
+                botCommands.put(commandName, command);
+                commandDescriptions.put(commandName, commandDescription);
             }
         }
     }
