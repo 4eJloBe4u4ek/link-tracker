@@ -46,30 +46,31 @@ class CommandServiceTest extends BaseIntegrationTest {
 
     @Test
     void getTrackedLinks_whenNotCached_shouldFetchFromClientAndCache() {
+        // Arrange
         List<LinkResponse> links = List.of(new LinkResponse(1L, TEST_URL, List.of(), List.of()));
         ListLinksResponse response = new ListLinksResponse(links, links.size());
-
         when(scrapperClient.getTrackedLinks(TEST_CHAT_ID)).thenReturn(Mono.just(response));
 
+        // Act
         Mono<List<String>> result = commandService.getTrackedLinks(TEST_CHAT_ID);
 
+        // Assert
         StepVerifier.create(result).expectNext(List.of(TEST_URL)).verifyComplete();
-
         Mono<List<String>> cachedResult = commandService.getTrackedLinks(TEST_CHAT_ID);
-
         StepVerifier.create(cachedResult).expectNext(List.of(TEST_URL)).verifyComplete();
-
         verify(scrapperClient, times(1)).getTrackedLinks(TEST_CHAT_ID);
     }
 
     @Test
     void trackLink_shouldInvalidateCache() {
+        // Arrange
         when(scrapperClient.addTrackedLink(eq(TEST_CHAT_ID), any())).thenReturn(Mono.empty());
 
+        // Act
         Mono<Boolean> result = commandService.trackLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
+        // Assert
         StepVerifier.create(result).expectNext(true).verifyComplete();
-
         Assertions.assertNull(
                 redisTemplate.opsForValue().get(String.format(REDIS_TRACKED_LINKS_KEY_TEMPLATE, TEST_CHAT_ID)));
         verify(scrapperClient).addTrackedLink(eq(TEST_CHAT_ID), any());
@@ -77,12 +78,14 @@ class CommandServiceTest extends BaseIntegrationTest {
 
     @Test
     void untrackLink_shouldInvalidateCache() {
+        // Arrange
         when(scrapperClient.deleteTrackedLink(eq(TEST_CHAT_ID), any())).thenReturn(Mono.empty());
 
+        // Act
         Mono<Boolean> result = commandService.untrackLink(TEST_CHAT_ID, TEST_URL);
 
+        // Assert
         StepVerifier.create(result).expectNext(true).verifyComplete();
-
         Assertions.assertNull(
                 redisTemplate.opsForValue().get(String.format(REDIS_TRACKED_LINKS_KEY_TEMPLATE, TEST_CHAT_ID)));
         verify(scrapperClient).deleteTrackedLink(eq(TEST_CHAT_ID), any());

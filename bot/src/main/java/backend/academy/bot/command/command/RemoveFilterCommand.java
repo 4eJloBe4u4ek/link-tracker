@@ -8,14 +8,14 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.request.SendMessage;
 import org.springframework.stereotype.Component;
 
-@BotCommand(command = "/removefilter", description = "Удалить фильтр у отслеживаемой ссылки.")
+@BotCommand(BotCommandInfo.REMOVE_FILTER)
 @Component
 public class RemoveFilterCommand extends AbstractFilterCommand {
     private static final FilterCommandConfig CONFIG = new FilterCommandConfig(
-            "/removefilter",
+            BotCommandInfo.REMOVE_FILTER.commandName(),
             DialogType.REMOVE_FILTER,
-            "Использование: /removefilter",
-            "Ошибка. Пожалуйста, начните с /removefilter",
+            "Использование: " + BotCommandInfo.REMOVE_FILTER.commandName(),
+            "Ошибка. Пожалуйста, начните с " + BotCommandInfo.REMOVE_FILTER.commandName(),
             "Укажите ссылку для удаления фильтра.",
             "Укажите фильтр для удаления.",
             "Ссылка %s некорректна",

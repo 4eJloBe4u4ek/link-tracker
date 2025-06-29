@@ -73,8 +73,10 @@ class OrmTagRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldAddTagToLink() {
+        // Act
         ormTagRepository.addTagToLink(chat.id(), link.url(), TEST_TAG);
 
+        // Assert
         Optional<TagEntity> tag = tagJpaRepository.findByName(TEST_TAG);
         assertThat(tag).isPresent();
         assertThat(chatLinkTagJpaRepository.findByChatAndLinkAndTag(chat, link, tag.orElseThrow()))
@@ -84,11 +86,13 @@ class OrmTagRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkNotTrackedByChat() {
+        // Arrange
         ChatEntity otherChat = new ChatEntity();
         Long otherChatId = 9999L;
         otherChat.id(otherChatId);
         chatJpaRepository.save(otherChat);
 
+        // Act & Assert
         assertThrows(
                 LinkNotFoundException.class, () -> ormTagRepository.addTagToLink(otherChat.id(), link.url(), TEST_TAG));
     }
@@ -96,8 +100,10 @@ class OrmTagRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfTagAlreadyExists() {
+        // Arrange
         ormTagRepository.addTagToLink(chat.id(), link.url(), TEST_TAG);
 
+        // Act & Assert
         assertThrows(
                 TagAlreadyExistsException.class, () -> ormTagRepository.addTagToLink(chat.id(), link.url(), TEST_TAG));
     }
@@ -105,10 +111,13 @@ class OrmTagRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldRemoveTagFromLink() {
+        // Arrange
         ormTagRepository.addTagToLink(chat.id(), link.url(), TEST_TAG);
 
+        // Act
         ormTagRepository.removeTagFromLink(chat.id(), link.url(), TEST_TAG);
 
+        // Assert
         Optional<TagEntity> tag = tagJpaRepository.findByName(TEST_TAG);
         List<ChatLinkTagEntity> chatLinkTagList = chatLinkTagJpaRepository.findByChatAndLink(chat, link);
         assertThat(tag).isEmpty();
@@ -118,9 +127,11 @@ class OrmTagRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfTagDoesNotExist() {
-        String otherTagName = "otherTag";
+        // Arrange
         ormTagRepository.addTagToLink(chat.id(), link.url(), TEST_TAG);
 
+        // Act & Assert
+        String otherTagName = "otherTag";
         assertThrows(
                 TagNotFoundException.class,
                 () -> ormTagRepository.removeTagFromLink(chat.id(), link.url(), otherTagName));
@@ -129,6 +140,7 @@ class OrmTagRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkHasNoTag() {
+        // Arrange
         String otherTagName = "otherTag";
         Long otherChatId = 9999L;
         ChatEntity otherChat = new ChatEntity();
@@ -136,10 +148,10 @@ class OrmTagRepositoryTest extends BaseIntegrationTest {
         otherChat.createdAt(LocalDateTime.now());
         otherChat.links().add(link);
         chatJpaRepository.save(otherChat);
-
         ormTagRepository.addTagToLink(chat.id(), link.url(), TEST_TAG);
         ormTagRepository.addTagToLink(otherChat.id(), link.url(), otherTagName);
 
+        // Act & Assert
         assertThrows(
                 TagNotFoundException.class,
                 () -> ormTagRepository.removeTagFromLink(chat.id(), link.url(), otherTagName));

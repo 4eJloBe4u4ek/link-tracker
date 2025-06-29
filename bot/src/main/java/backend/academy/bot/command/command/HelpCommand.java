@@ -1,5 +1,8 @@
 package backend.academy.bot.command.command;
 
+import static backend.academy.bot.command.Utils.NEW_LINE;
+import static backend.academy.bot.command.Utils.SPACE_SPLIT_REGEX;
+
 import backend.academy.bot.command.BotCommand;
 import backend.academy.bot.command.CommandHandler;
 import backend.academy.bot.command.TelegramCommand;
@@ -10,15 +13,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
-@BotCommand(command = "/help", description = "Список доступных команд.")
+@BotCommand(BotCommandInfo.HELP)
 @Component
 @RequiredArgsConstructor
 public class HelpCommand implements TelegramCommand {
-    private static final String SPACE_SPLIT_REGEX = "\\s+";
-    private static final String NEW_LINE = "\n";
-    private static final String COMMAND_NAME = "/help";
     private static final String HELP_HEADER = "Доступные команды:";
-    private static final String USAGE_MESSAGE = "Использование: " + COMMAND_NAME;
+    private static final String USAGE_MESSAGE = "Использование: " + BotCommandInfo.HELP.commandName();
     private static final String SEPARATOR = " - ";
     private final ApplicationContext context;
 

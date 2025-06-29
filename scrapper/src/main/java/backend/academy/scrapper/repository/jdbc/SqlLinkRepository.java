@@ -4,6 +4,7 @@ import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.scrapper.exception.LinkAlreadyExistsException;
 import backend.academy.scrapper.exception.LinkNotFoundException;
 import backend.academy.scrapper.repository.LinkOperationRepository;
+import backend.academy.shared.dto.LinkType;
 import backend.academy.shared.dto.TrackedLink;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -71,6 +72,10 @@ public class SqlLinkRepository extends BaseSqlRepository implements LinkOperatio
         JOIN filters f ON clf.filter_id = f.id
         WHERE clf.chat_id = ? AND clf.link_id = (SELECT l.id FROM links l WHERE url = ?)
         """;
+    private static final String GET_GITHUB_LINK_COUNT =
+            "SELECT COUNT(*) FROM links WHERE url LIKE 'https://github.com/%'";
+    private static final String GET_STACKOVERFLOW_LINK_COUNT =
+            "SELECT COUNT(*) FROM links WHERE url LIKE 'https://stackoverflow.com/questions/%'";
 
     private final RowMapper<TrackedLink> trackedLinkRowMapper = (rs, rowNum) -> new TrackedLink(
             rs.getLong("id"),
@@ -157,6 +162,14 @@ public class SqlLinkRepository extends BaseSqlRepository implements LinkOperatio
     @Override
     public List<String> getFiltersForChatAndLink(Long chatId, TrackedLink trackedLink) {
         return jdbcTemplate.queryForList(GET_FILTERS_BY_CHAT_AND_LINK, String.class, chatId, trackedLink.url());
+    }
+
+    @Override
+    public Long countByType(LinkType linkType) {
+        return switch (linkType) {
+            case GITHUB -> jdbcTemplate.queryForObject(GET_GITHUB_LINK_COUNT, Long.class);
+            case STACKOVERFLOW -> jdbcTemplate.queryForObject(GET_STACKOVERFLOW_LINK_COUNT, Long.class);
+        };
     }
 
     private TrackedLink getLinkById(Long linkId) {

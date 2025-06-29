@@ -56,8 +56,8 @@ class NotificationServiceTest {
 
     @Test
     void shouldSendUpdateToImmediateUsers() {
+        // Arrange
         List<Long> chats = List.of(1L, 2L);
-
         when(redisTemplate.opsForList()).thenReturn(listOperations);
         when(linkOperationRepository.getFiltersForChatAndLink(any(), eq(GITHUB_TRACKED_LINK)))
                 .thenReturn(List.of());
@@ -66,10 +66,12 @@ class NotificationServiceTest {
         when(updateSender.sendUpdate(any())).thenReturn(Mono.empty());
         when(notificationService.getSubscribedChats(GITHUB_TRACKED_LINK)).thenReturn(chats);
 
+        // Act
         notificationService
                 .sendUpdate(GITHUB_TRACKED_LINK, UPDATE_MESSAGE, UPDATE_AUTHOR)
                 .block();
 
+        // Assert
         verify(updateSender)
                 .sendUpdate(argThat(update -> update.url().equals(GITHUB_TRACKED_LINK.url())
                         && update.description().equals(UPDATE_MESSAGE)
@@ -79,32 +81,37 @@ class NotificationServiceTest {
 
     @Test
     void shouldSkipUserWithFilter() {
+        // Arrange
         List<Long> chats = List.of(1L);
         when(linkOperationRepository.getFiltersForChatAndLink(1L, STACKOVERFLOW_TRACKED_LINK))
                 .thenReturn(List.of("user=author"));
         when(notificationService.getSubscribedChats(STACKOVERFLOW_TRACKED_LINK)).thenReturn(chats);
 
+        // Act
         notificationService
                 .sendUpdate(STACKOVERFLOW_TRACKED_LINK, UPDATE_MESSAGE, UPDATE_AUTHOR)
                 .block();
 
+        // Assert
         verify(updateSender, never()).sendUpdate(any());
     }
 
     @Test
     void shouldAddToDailyDigest() {
+        // Arrange
         List<Long> chats = List.of(2L);
-
         when(linkOperationRepository.getFiltersForChatAndLink(2L, GITHUB_TRACKED_LINK))
                 .thenReturn(List.of());
         when(chatOperationRepository.getNotificationMode(2L)).thenReturn(NotificationMode.DAILY_DIGEST);
         when(redisTemplate.opsForList()).thenReturn(listOperations);
         when(notificationService.getSubscribedChats(GITHUB_TRACKED_LINK)).thenReturn(chats);
 
+        // Act
         notificationService
                 .sendUpdate(GITHUB_TRACKED_LINK, UPDATE_MESSAGE, UPDATE_AUTHOR)
                 .block();
 
+        // Assert
         verify(listOperations)
                 .rightPush(
                         eq(REDIS_DIGEST_KEY + "2"),
@@ -114,21 +121,24 @@ class NotificationServiceTest {
 
     @Test
     void shouldSendDailyDigestAndDeleteAfterSending() {
+        // Arrange
         when(chatOperationRepository.getChatIdsWithDigestTimeMatchingNow()).thenReturn(List.of(1L));
         when(redisTemplate.opsForList()).thenReturn(listOperations);
         when(listOperations.range(REDIS_DIGEST_KEY + "1", 0, -1)).thenReturn(List.of(LINK_UPDATE));
         when(updateSender.sendUpdate(LINK_UPDATE)).thenReturn(Mono.empty());
 
+        // Act
         notificationService.sendDailyDigest();
 
+        // Assert
         verify(updateSender).sendUpdate(LINK_UPDATE);
         verify(redisTemplate).delete(REDIS_DIGEST_KEY + "1");
     }
 
     @Test
     void shouldNotifyOnlySubscribedChats() {
+        // Arrange
         List<Long> subscribedChats = List.of(1L, 3L);
-
         when(notificationService.getSubscribedChats(STACKOVERFLOW_TRACKED_LINK)).thenReturn(subscribedChats);
         when(linkOperationRepository.getFiltersForChatAndLink(any(), eq(STACKOVERFLOW_TRACKED_LINK)))
                 .thenReturn(List.of());
@@ -137,10 +147,12 @@ class NotificationServiceTest {
         when(redisTemplate.opsForList()).thenReturn(listOperations);
         when(updateSender.sendUpdate(any())).thenReturn(Mono.empty());
 
+        // Act
         notificationService
                 .sendUpdate(STACKOVERFLOW_TRACKED_LINK, UPDATE_MESSAGE, UPDATE_AUTHOR)
                 .block();
 
+        // Assert
         verify(updateSender)
                 .sendUpdate(argThat(update -> update.tgChatIds().contains(1L)
                         && !update.tgChatIds().contains(2L)

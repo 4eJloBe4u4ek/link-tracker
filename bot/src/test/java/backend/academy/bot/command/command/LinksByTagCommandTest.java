@@ -57,9 +57,13 @@ class LinksByTagCommandTest {
 
     @Test
     void shouldReturnUsageErrorForExtraArguments() {
+        // Arrange
         when(message.text()).thenReturn(CMD_LINKS_BY_TAG + EXTRA_ARGUMENT);
+
+        // Act
         linksByTagCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -68,11 +72,14 @@ class LinksByTagCommandTest {
 
     @Test
     void shouldStartLinksByTagDialog() {
+        // Arrange
         when(message.text()).thenReturn(CMD_LINKS_BY_TAG);
         assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
 
+        // Act
         linksByTagCommand.execute(update, bot);
 
+        // Assert
         TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context).isNotNull();
         assertThat(context.dialogType()).isEqualTo(DialogType.LINKS_BY_TAG);
@@ -85,11 +92,15 @@ class LinksByTagCommandTest {
 
     @Test
     void shouldProcessInvalidTagCount() {
+        // Arrange
         when(message.text()).thenReturn(CMD_LINKS_BY_TAG);
         linksByTagCommand.execute(update, bot);
         when(message.text()).thenReturn(INVALID_TAG_COUNT);
+
+        // Act
         linksByTagCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -101,13 +112,16 @@ class LinksByTagCommandTest {
 
     @Test
     void shouldProcessValidTagInputEmptyList() {
+        // Arrange
         when(message.text()).thenReturn(CMD_LINKS_BY_TAG);
         linksByTagCommand.execute(update, bot);
         when(message.text()).thenReturn(VALID_TAG_COUNT);
         when(commandService.getTrackedLinksByTag(TEST_CHAT_ID, VALID_TAG_COUNT)).thenReturn(Mono.just(List.of()));
 
+        // Act
         linksByTagCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -117,14 +131,17 @@ class LinksByTagCommandTest {
 
     @Test
     void shouldHandleErrorWhenGettingLinks() {
+        // Arrange
         when(message.text()).thenReturn(CMD_LINKS_BY_TAG);
         linksByTagCommand.execute(update, bot);
         when(message.text()).thenReturn(VALID_TAG_COUNT);
         when(commandService.getTrackedLinksByTag(TEST_CHAT_ID, VALID_TAG_COUNT))
                 .thenReturn(Mono.error(new RuntimeException("Error")));
 
+        // Act
         linksByTagCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(msg -> msg.getParameters()
                                 .get(TELEGRAM_PARAM_CHAT_ID)

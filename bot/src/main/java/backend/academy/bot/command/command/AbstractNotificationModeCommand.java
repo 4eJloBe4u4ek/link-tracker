@@ -1,5 +1,7 @@
 package backend.academy.bot.command.command;
 
+import static backend.academy.bot.command.Utils.HH_MM_TIME_FORMATTER;
+
 import backend.academy.bot.command.TelegramCommand;
 import backend.academy.bot.dialog.DialogService;
 import backend.academy.bot.dialog.DialogType;
@@ -12,13 +14,11 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.SendMessage;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public abstract class AbstractNotificationModeCommand implements TelegramCommand {
-    private final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
     protected final CommandService commandService;
     protected final DialogService dialogService;
     protected final NotificationModeCommandConfig notificationModeCommandConfig;
@@ -40,13 +40,17 @@ public abstract class AbstractNotificationModeCommand implements TelegramCommand
                     message,
                     notificationModeCommandConfig.enterNotificationMode());
         } else {
-            switch (trackingContext.trackState()) {
-                case AWAITING_NOTIFICATION_MODE -> processNotificationModeInput(chatId, bot, trackingContext, message);
-                case AWAITING_NOTIFICATION_TIME -> processNotificationTimeInput(chatId, bot, trackingContext, message);
-                default -> {
-                    bot.execute(new SendMessage(chatId, notificationModeCommandConfig.unknownState()));
-                    dialogService.endDialog(chatId);
-                }
+            handleTrackingState(bot, trackingContext, chatId, message);
+        }
+    }
+
+    private void handleTrackingState(TelegramBot bot, TrackingContext trackingContext, Long chatId, String message) {
+        switch (trackingContext.trackState()) {
+            case AWAITING_NOTIFICATION_MODE -> processNotificationModeInput(chatId, bot, trackingContext, message);
+            case AWAITING_NOTIFICATION_TIME -> processNotificationTimeInput(chatId, bot, trackingContext, message);
+            default -> {
+                bot.execute(new SendMessage(chatId, notificationModeCommandConfig.unknownState()));
+                dialogService.endDialog(chatId);
             }
         }
     }
@@ -74,7 +78,7 @@ public abstract class AbstractNotificationModeCommand implements TelegramCommand
     private void processNotificationTimeInput(
             Long chatId, TelegramBot bot, TrackingContext trackingContext, String message) {
         try {
-            LocalTime time = LocalTime.parse(message, TIME_FORMATTER);
+            LocalTime time = LocalTime.parse(message, HH_MM_TIME_FORMATTER);
             trackingContext.digestTime(time);
             trackingContext.trackState(TrackState.COMPLETED);
             performOperation(chatId, trackingContext, bot);

@@ -8,14 +8,14 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.request.SendMessage;
 import org.springframework.stereotype.Component;
 
-@BotCommand(command = "/removetag", description = "Удалить тег у отслеживаемой ссылки.")
+@BotCommand(BotCommandInfo.REMOVE_TAG)
 @Component
 public class RemoveTagCommand extends AbstractTagCommand {
     private static final TagCommandConfig CONFIG = new TagCommandConfig(
-            "/removetag",
+            BotCommandInfo.REMOVE_TAG.commandName(),
             DialogType.REMOVE_TAG,
-            "Использование: /removetag",
-            "Ошибка. Пожалуйста, начните с /removetag",
+            "Использование: " + BotCommandInfo.REMOVE_TAG.commandName(),
+            "Ошибка. Пожалуйста, начните с " + BotCommandInfo.REMOVE_TAG.commandName(),
             "Укажите ссылку для удаления тега.",
             "Укажите тег для удаления.",
             "Ссылка %s некорректна",

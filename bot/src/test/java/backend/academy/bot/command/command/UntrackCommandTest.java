@@ -53,10 +53,13 @@ class UntrackCommandTest {
 
     @Test
     void shouldReturnUsageErrorForExtraArguments() {
+        // Arrange
         when(message.text()).thenReturn(CMD_UNTRACK + EXTRA_ARGUMENT);
 
+        // Act
         untrackCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -65,10 +68,13 @@ class UntrackCommandTest {
 
     @Test
     void shouldStartUntrackDialog() {
+        // Arrange
         when(message.text()).thenReturn(CMD_UNTRACK);
 
+        // Act
         untrackCommand.execute(update, bot);
 
+        // Assert
         assertThat(dialogService.getDialog(TEST_CHAT_ID).dialogType()).isEqualTo(DialogType.UNTRACK);
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
@@ -78,13 +84,16 @@ class UntrackCommandTest {
 
     @Test
     void shouldUntrackValidUrlSuccessfully() {
+        // Arrange
         dialogService.startDialog(TEST_CHAT_ID, DialogType.UNTRACK);
         dialogService.getDialog(TEST_CHAT_ID).trackState(TrackState.AWAITING_URL);
         when(message.text()).thenReturn(TEST_URL);
         when(commandService.untrackLink(TEST_CHAT_ID, TEST_URL)).thenReturn(Mono.just(true));
 
+        // Act
         untrackCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
@@ -96,13 +105,16 @@ class UntrackCommandTest {
 
     @Test
     void shouldHandleUntrackFailure() {
+        // Arrange
         dialogService.startDialog(TEST_CHAT_ID, DialogType.UNTRACK);
         dialogService.getDialog(TEST_CHAT_ID).trackState(TrackState.AWAITING_URL);
         when(message.text()).thenReturn(TEST_URL);
         when(commandService.untrackLink(TEST_CHAT_ID, TEST_URL)).thenReturn(Mono.just(false));
 
+        // Act
         untrackCommand.execute(update, bot);
 
+        // Assert
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
                         msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)

@@ -32,30 +32,33 @@ class UpdateControllerRateLimitTest extends BaseIntegrationTest {
     private BucketProperties bucketProperties;
 
     @MockitoBean
-    UpdateService updateService;
+    private UpdateService updateService;
 
     @MockitoBean
-    TelegramBot telegramBot;
+    private TelegramBot telegramBot;
 
     @MockitoBean
-    KafkaTemplate<?, ?> kafkaTemplate;
+    private KafkaTemplate<?, ?> kafkaTemplate;
 
     @Test
     void shouldReturn429WhenRateLimitExceeded() throws Exception {
+        // Arrange
         long allowedRequests = bucketProperties.capacity();
 
+        // Act & Assert
         for (int i = 0; i < allowedRequests; i++) {
             mockMvc.perform(post(UPDATE_PATH)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(LINK_UPDATE_JSON))
                     .andExpect(status().isOk());
         }
-
         var result = mockMvc.perform(post(UPDATE_PATH)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(LINK_UPDATE_JSON))
                 .andExpect(status().isTooManyRequests())
                 .andReturn();
+
+        // Assert
         assertEquals("Rate limit exceeded", result.getResponse().getContentAsString());
     }
 }

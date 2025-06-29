@@ -16,14 +16,14 @@ public class UpdateScheduler {
 
     @Scheduled(fixedDelayString = "#{scheduler.interval()}")
     public void checkUpdates() {
-        log.atInfo().setMessage("Checking updates...").log();
+        log.info("Checking updates...");
         linkUpdateService.checkForUpdates();
-        log.atInfo().setMessage("Finished checking updates").log();
+        log.info("Finished checking updates");
     }
 
     @Scheduled(cron = "0 * * * * *")
     public void sendDailyDigest() {
-        log.atInfo().setMessage("Triggering digest scheduler").log();
+        log.info("Triggering digest scheduler");
         notificationService.sendDailyDigest();
     }
 }

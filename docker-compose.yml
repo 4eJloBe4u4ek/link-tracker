@@ -91,6 +91,73 @@ services:
     networks:
       - backend
 
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - backend
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - backend
+
+  bot:
+    build:
+      context: .
+      dockerfile: bot/Dockerfile
+    container_name: bot
+    depends_on:
+      - redis
+      - kafka
+      - prometheus
+      - grafana
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SCRAPPER_BASE_URL=http://scrapper:8081
+    ports:
+      - "8080:8080"
+      - "8090:8090"
+    networks:
+      - backend
+
+  scrapper:
+    build:
+      context: .
+      dockerfile: scrapper/Dockerfile
+    container_name: scrapper
+    depends_on:
+      - postgresql
+      - redis
+      - kafka
+      - prometheus
+      - grafana
+    environment:
+      - SO_TOKEN_KEY=${SO_TOKEN_KEY}
+      - SO_ACCESS_TOKEN=${SO_ACCESS_TOKEN}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgresql:5432/scrapper
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - BOT_BASE_URL=http://bot:8080
+    ports:
+      - "8081:8081"
+      - "8091:8091"
+    networks:
+      - backend
+
 networks:
   backend:
     driver: bridge
@@ -101,3 +168,5 @@ volumes:
   zookeeper-datalog:
   kafka-data:
   redis-data:
+  prometheus-data:
+  grafana-data:

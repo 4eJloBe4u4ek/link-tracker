@@ -31,4 +31,10 @@ public interface LinkJpaRepository extends JpaRepository<LinkEntity, Long> {
     Page<LinkEntity> findByChatIdAndTag(Long chatId, String tag, Pageable pageable);
 
     Optional<LinkEntity> findByUrl(String url);
+
+    @Query("SELECT COUNT(l) FROM LinkEntity l WHERE l.url LIKE 'https://github.com/%'")
+    Long countGithubLinks();
+
+    @Query("SELECT COUNT(l) FROM LinkEntity l WHERE l.url LIKE 'https://stackoverflow.com/questions/%'")
+    Long countStackoverflowLinks();
 }

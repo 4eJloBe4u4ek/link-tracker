@@ -1,5 +1,8 @@
 package backend.academy.bot.command.command;
 
+import static backend.academy.bot.command.Utils.NEW_LINE;
+import static backend.academy.bot.command.Utils.SPACE_SPLIT_REGEX;
+
 import backend.academy.bot.command.BotCommand;
 import backend.academy.bot.command.TelegramCommand;
 import backend.academy.bot.service.CommandService;
@@ -9,15 +12,12 @@ import com.pengrad.telegrambot.request.SendMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-@BotCommand(command = "/list", description = "Список отслеживаемых ссылок.")
+@BotCommand(BotCommandInfo.LIST)
 @Component
 @RequiredArgsConstructor
 public class ListCommand implements TelegramCommand {
-    private static final String SPACE_SPLIT_REGEX = "\\s+";
-    private static final String NEW_LINE = "\n";
-    private static final String COMMAND_NAME = "/list";
     private static final String EMPTY_LIST = "Список отслеживаемых ссылок пуст.";
-    private static final String USAGE_MESSAGE = "Использование: " + COMMAND_NAME;
+    private static final String USAGE_MESSAGE = "Использование: " + BotCommandInfo.LIST.commandName();
     private static final String LIST_HEADER = "Список отслеживаемых ссылок:";
     private static final String ERROR_MESSAGE = "Произошла ошибка при получении отслеживаемых ссылок.";
     private final CommandService commandService;

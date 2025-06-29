@@ -1,5 +1,7 @@
 package backend.academy.bot.command.command;
 
+import static backend.academy.bot.command.Utils.SPACE_SPLIT_REGEX;
+
 import backend.academy.bot.command.*;
 import backend.academy.bot.dialog.DialogService;
 import backend.academy.bot.dialog.DialogType;
@@ -16,23 +18,22 @@ import java.util.Collections;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-@BotCommand(command = "/track", description = "Начать отслеживание ссылки.")
+@BotCommand(BotCommandInfo.TRACK)
 @Component
 @RequiredArgsConstructor
 public class TrackCommand implements TelegramCommand {
-    private static final String SPACE_SPLIT_REGEX = "\\s+";
-    private static final String COMMAND_NAME = "/track";
     private static final String SKIP_COMMAND_NAME = "/skip";
     private static final String TAGS_MESSAGE = "Введите теги через пробел (опционально - " + SKIP_COMMAND_NAME + "):";
     private static final String FILTERS_MESSAGE =
             "Введите фильтры через пробел (опционально - " + SKIP_COMMAND_NAME + "):";
-    private static final String USAGE_MESSAGE = "Использование: " + COMMAND_NAME;
+    private static final String USAGE_MESSAGE = "Использование: " + BotCommandInfo.TRACK.commandName();
     private static final String INVALID_URL_MESSAGE = "Ссылка %s некорректна";
     private static final String SUCCESS_MESSAGE = "Ссылка %s добавлена в отслеживание.";
     private static final String FAILURE_MESSAGE = "Ошибка! Ссылка %s не добавлена в отслеживание.";
     private static final String ERROR_MESSAGE = "Произошла ошибка при добавлении ссылки.";
     private static final String ENTER_URL_TO_TRACK = "Укажите ссылку для отслеживания.";
-    private static final String UNKNOWN_STATE = "Ошибка. Пожалуйста, начните отслеживание с " + COMMAND_NAME;
+    private static final String UNKNOWN_STATE =
+            "Ошибка. Пожалуйста, начните отслеживание с " + BotCommandInfo.TRACK.commandName();
 
     private final CommandService commandService;
     private final DialogService dialogService;
@@ -43,7 +44,7 @@ public class TrackCommand implements TelegramCommand {
         String message = update.message().text().trim();
         TrackingContext trackingContext = dialogService.getDialog(chatId);
 
-        if (message.startsWith(COMMAND_NAME) && trackingContext == null) {
+        if (message.startsWith(BotCommandInfo.TRACK.commandName()) && trackingContext == null) {
             DialogUtils.startDialogAndNotify(
                     dialogService,
                     chatId,
@@ -54,14 +55,18 @@ public class TrackCommand implements TelegramCommand {
                     message,
                     ENTER_URL_TO_TRACK);
         } else {
-            switch (trackingContext.trackState()) {
-                case AWAITING_URL -> processUrlInput(chatId, bot, trackingContext, message);
-                case AWAITING_TAGS -> processTagsInput(chatId, bot, trackingContext, message);
-                case AWAITING_FILTERS -> processFiltersInput(chatId, bot, trackingContext, message);
-                default -> {
-                    bot.execute(new SendMessage(chatId, UNKNOWN_STATE));
-                    dialogService.endDialog(chatId);
-                }
+            handleTrackingState(bot, trackingContext, chatId, message);
+        }
+    }
+
+    private void handleTrackingState(TelegramBot bot, TrackingContext trackingContext, Long chatId, String message) {
+        switch (trackingContext.trackState()) {
+            case AWAITING_URL -> processUrlInput(chatId, bot, trackingContext, message);
+            case AWAITING_TAGS -> processTagsInput(chatId, bot, trackingContext, message);
+            case AWAITING_FILTERS -> processFiltersInput(chatId, bot, trackingContext, message);
+            default -> {
+                bot.execute(new SendMessage(chatId, UNKNOWN_STATE));
+                dialogService.endDialog(chatId);
             }
         }
     }

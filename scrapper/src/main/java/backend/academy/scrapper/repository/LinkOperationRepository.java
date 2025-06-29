@@ -1,5 +1,6 @@
 package backend.academy.scrapper.repository;
 
+import backend.academy.shared.dto.LinkType;
 import backend.academy.shared.dto.TrackedLink;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,4 +21,6 @@ public interface LinkOperationRepository {
     void updateLastCheckedTime(TrackedLink trackedLink, LocalDateTime lastCheckedTime);
 
     List<String> getFiltersForChatAndLink(Long chatId, TrackedLink trackedLink);
+
+    Long countByType(LinkType linkType);
 }

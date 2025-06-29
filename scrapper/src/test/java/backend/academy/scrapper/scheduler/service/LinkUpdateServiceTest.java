@@ -54,33 +54,42 @@ class LinkUpdateServiceTest {
 
     @Test
     void shouldCheckForGithubUpdates() {
+        // Arrange
         when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(GITHUB_TRACKED_LINK));
         when(githubHandler.handle(GITHUB_TRACKED_LINK)).thenReturn(CompletableFuture.completedFuture(null));
 
+        // Act
         linkUpdateService.checkForUpdates();
 
+        // Assert
         verify(githubHandler).handle(GITHUB_TRACKED_LINK);
         verify(linkOperationRepository).updateLastCheckedTime(eq(GITHUB_TRACKED_LINK), any());
     }
 
     @Test
     void shouldCheckForStackOverflowUpdates() {
+        // Arrange
         when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(STACKOVERFLOW_TRACKED_LINK));
         when(stackoverflowHandler.handle(STACKOVERFLOW_TRACKED_LINK))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
+        // Act
         linkUpdateService.checkForUpdates();
 
+        // Assert
         verify(stackoverflowHandler).handle(STACKOVERFLOW_TRACKED_LINK);
         verify(linkOperationRepository).updateLastCheckedTime(eq(STACKOVERFLOW_TRACKED_LINK), any());
     }
 
     @Test
     void shouldSkipUnknownLinks() {
+        // Arrange
         when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(UNKNOWN_TRACKED_LINK));
 
+        // Act
         linkUpdateService.checkForUpdates();
 
+        // Assert
         verifyNoInteractions(githubHandler, stackoverflowHandler);
         verify(linkOperationRepository, never()).updateLastCheckedTime(eq(UNKNOWN_TRACKED_LINK), any());
     }

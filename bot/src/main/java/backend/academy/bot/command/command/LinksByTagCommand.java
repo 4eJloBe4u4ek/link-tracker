@@ -1,5 +1,8 @@
 package backend.academy.bot.command.command;
 
+import static backend.academy.bot.command.Utils.NEW_LINE;
+import static backend.academy.bot.command.Utils.SPACE_SPLIT_REGEX;
+
 import backend.academy.bot.command.BotCommand;
 import backend.academy.bot.command.TelegramCommand;
 import backend.academy.bot.dialog.DialogService;
@@ -15,19 +18,17 @@ import java.util.Arrays;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-@BotCommand(command = "/linksbytag", description = "Список отслеживаемых ссылок по тегу.")
+@BotCommand(BotCommandInfo.LINKS_BY_TAG)
 @Component
 @RequiredArgsConstructor
 public class LinksByTagCommand implements TelegramCommand {
-    private static final String SPACE_SPLIT_REGEX = "\\s+";
-    private static final String NEW_LINE = "\n";
-    private static final String COMMAND_NAME = "/linksbytag";
     private static final String EMPTY_LIST = "Список отслеживаемых ссылок по тегу пуст.";
-    private static final String USAGE_MESSAGE = "Использование: " + COMMAND_NAME;
+    private static final String USAGE_MESSAGE = "Использование: " + BotCommandInfo.LINKS_BY_TAG.commandName();
     private static final String LIST_HEADER = "Список отслеживаемых ссылок по тегу:";
     private static final String ERROR_MESSAGE = "Произошла ошибка при получении отслеживаемых ссылок по тегу.";
     private static final String ENTER_TAG = "Укажите тег для вывода отслеживаемых ссылок.";
-    private static final String UNKNOWN_STATE = "Ошибка. Пожалуйста, начните с " + COMMAND_NAME;
+    private static final String UNKNOWN_STATE =
+            "Ошибка. Пожалуйста, начните с " + BotCommandInfo.LINKS_BY_TAG.commandName();
     private static final String INVALID_TAG_COUNT = "Введите один тег для вывода списка отслеживаемых ссылок.";
 
     private final CommandService commandService;
@@ -39,7 +40,7 @@ public class LinksByTagCommand implements TelegramCommand {
         String message = update.message().text().trim();
         TrackingContext trackingContext = dialogService.getDialog(chatId);
 
-        if (message.startsWith(COMMAND_NAME) && trackingContext == null) {
+        if (message.startsWith(BotCommandInfo.LINKS_BY_TAG.commandName()) && trackingContext == null) {
             DialogUtils.startDialogAndNotify(
                     dialogService,
                     chatId,
@@ -50,12 +51,16 @@ public class LinksByTagCommand implements TelegramCommand {
                     message,
                     ENTER_TAG);
         } else {
-            switch (trackingContext.trackState()) {
-                case AWAITING_TAG -> processTagInput(chatId, bot, trackingContext, message);
-                default -> {
-                    bot.execute(new SendMessage(chatId, UNKNOWN_STATE));
-                    dialogService.endDialog(chatId);
-                }
+            handleTrackingState(bot, trackingContext, chatId, message);
+        }
+    }
+
+    private void handleTrackingState(TelegramBot bot, TrackingContext trackingContext, Long chatId, String message) {
+        switch (trackingContext.trackState()) {
+            case AWAITING_TAG -> processTagInput(chatId, bot, trackingContext, message);
+            default -> {
+                bot.execute(new SendMessage(chatId, UNKNOWN_STATE));
+                dialogService.endDialog(chatId);
             }
         }
     }

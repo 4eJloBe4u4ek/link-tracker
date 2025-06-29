@@ -37,8 +37,10 @@ class SqlChatRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldSaveChat() {
+        // Act
         sqlChatRepository.registerChat(TEST_CHAT_ID, NotificationMode.IMMEDIATE, null);
 
+        // Assert
         Integer count = jdbcTemplate.queryForObject(COUNT_CHAT_BY_ID, Integer.class, TEST_CHAT_ID);
         assertThat(count).isEqualTo(1);
     }
@@ -46,8 +48,10 @@ class SqlChatRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfChatAlreadyExists() {
+        // Arrange
         sqlChatRepository.registerChat(TEST_CHAT_ID, NotificationMode.IMMEDIATE, null);
 
+        // Act & Assert
         assertThrows(
                 ChatAlreadyExistsException.class,
                 () -> sqlChatRepository.registerChat(TEST_CHAT_ID, NotificationMode.IMMEDIATE, null));
@@ -56,10 +60,13 @@ class SqlChatRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldDeleteChat() {
+        // Arrange
         sqlChatRepository.registerChat(TEST_CHAT_ID, NotificationMode.IMMEDIATE, null);
 
+        // Act
         sqlChatRepository.deleteChat(TEST_CHAT_ID);
 
+        // Assert
         Integer count = jdbcTemplate.queryForObject(COUNT_CHAT_BY_ID, Integer.class, TEST_CHAT_ID);
         assertThat(count).isEqualTo(0);
     }
@@ -67,6 +74,7 @@ class SqlChatRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfChatNotFound() {
+        // Act & Assert
         Long otherChatId = 9999L;
         assertThrows(ChatNotFoundException.class, () -> sqlChatRepository.deleteChat(otherChatId));
     }
@@ -74,28 +82,34 @@ class SqlChatRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldReturnNotificationMode() {
+        // Arrange
         sqlChatRepository.registerChat(TEST_CHAT_ID, NotificationMode.DAILY_DIGEST, TEST_LOCAL_TIME);
 
+        // Act
         NotificationMode notificationMode = sqlChatRepository.getNotificationMode(TEST_CHAT_ID);
 
+        // Assert
         assertThat(notificationMode).isEqualTo(NotificationMode.DAILY_DIGEST);
     }
 
     @Test
     @Transactional
     void shouldThrowExceptionWhenGettingNotificationModeOfNonexistentChat() {
+        // Act & Assert
         Long otherChatId = 9999L;
-
         assertThrows(ChatNotFoundException.class, () -> sqlChatRepository.getNotificationMode(otherChatId));
     }
 
     @Test
     @Transactional
     void shouldUpdateNotificationMode() {
+        // Arrange
         sqlChatRepository.registerChat(TEST_CHAT_ID, NotificationMode.IMMEDIATE, null);
 
+        // Act
         sqlChatRepository.updateNotificationMode(TEST_CHAT_ID, NotificationMode.DAILY_DIGEST, TEST_LOCAL_TIME);
 
+        // Assert
         NotificationMode updatedMode = sqlChatRepository.getNotificationMode(TEST_CHAT_ID);
         assertThat(updatedMode).isEqualTo(NotificationMode.DAILY_DIGEST);
     }
@@ -103,8 +117,8 @@ class SqlChatRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionWhenUpdatingNotificationModeOfNonexistentChat() {
+        // Act & Assert
         Long otherChatId = 9999L;
-
         assertThrows(
                 ChatNotFoundException.class,
                 () -> sqlChatRepository.updateNotificationMode(otherChatId, NotificationMode.IMMEDIATE, null));
@@ -113,21 +127,27 @@ class SqlChatRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldReturnChatIdsWithDigestTimeMatchingNow() {
+        // Arrange
         LocalTime nowTruncated = LocalTime.now().withSecond(0).withNano(0);
         sqlChatRepository.registerChat(TEST_CHAT_ID, NotificationMode.DAILY_DIGEST, nowTruncated);
 
+        // Act
         List<Long> chatIds = sqlChatRepository.getChatIdsWithDigestTimeMatchingNow();
 
+        // Assert
         assertThat(chatIds.contains(TEST_CHAT_ID)).isTrue();
     }
 
     @Test
     @Transactional
     void shouldReturnEmptyListWhenNoChatWithDigestTimeMatchingNow() {
+        // Arrange
         sqlChatRepository.registerChat(TEST_CHAT_ID, NotificationMode.DAILY_DIGEST, TEST_LOCAL_TIME);
 
+        // Act
         List<Long> chatIds = sqlChatRepository.getChatIdsWithDigestTimeMatchingNow();
 
+        // Assert
         assertThat(chatIds.isEmpty()).isTrue();
     }
 }

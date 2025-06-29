@@ -50,12 +50,14 @@ class OrmChatRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldSaveChat() {
+        // Act & Assert
         assertThat(chatJpaRepository.findById(TEST_CHAT_ID)).isPresent();
     }
 
     @Test
     @Transactional
     void shouldThrowExceptionIfChatAlreadyExists() {
+        // Act & Assert
         assertThrows(
                 ChatAlreadyExistsException.class,
                 () -> ormChatRepository.registerChat(TEST_CHAT_ID, NotificationMode.IMMEDIATE, null));
@@ -64,14 +66,17 @@ class OrmChatRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldDeleteChat() {
+        // Act
         ormChatRepository.deleteChat(TEST_CHAT_ID);
 
+        // Assert
         assertThat(chatJpaRepository.findById(TEST_CHAT_ID)).isNotPresent();
     }
 
     @Test
     @Transactional
     void shouldThrowExceptionIfChatNotFound() {
+        // Act & Assert
         Long otherChatId = 9999L;
         assertThrows(ChatNotFoundException.class, () -> ormChatRepository.deleteChat(otherChatId));
     }
@@ -79,14 +84,17 @@ class OrmChatRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldReturnNotificationMode() {
+        // Act
         NotificationMode notificationMode = ormChatRepository.getNotificationMode(TEST_CHAT_ID);
 
+        // Assert
         assertThat(notificationMode).isEqualTo(NotificationMode.IMMEDIATE);
     }
 
     @Test
     @Transactional
     void shouldThrowExceptionWhenGettingNotificationModeOfNonexistentChat() {
+        // Act & Assert
         Long otherChatId = 9999L;
         assertThrows(ChatNotFoundException.class, () -> ormChatRepository.getNotificationMode(otherChatId));
     }
@@ -94,8 +102,10 @@ class OrmChatRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldUpdateNotificationMode() {
+        // Act
         ormChatRepository.updateNotificationMode(TEST_CHAT_ID, NotificationMode.DAILY_DIGEST, TEST_LOCAL_TIME);
 
+        // Assert
         NotificationMode updatedMode = ormChatRepository.getNotificationMode(TEST_CHAT_ID);
         assertThat(updatedMode).isEqualTo(NotificationMode.DAILY_DIGEST);
     }
@@ -103,6 +113,7 @@ class OrmChatRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionWhenUpdatingNotificationModeOfNonexistentChat() {
+        // Act & Assert
         Long otherChatId = 9999L;
         assertThrows(
                 ChatNotFoundException.class,
@@ -112,21 +123,27 @@ class OrmChatRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldReturnChatIdsWithDigestTimeMatchingNow() {
+        // Arrange
         LocalTime nowTruncated = LocalTime.now().withSecond(0).withNano(0);
         ormChatRepository.updateNotificationMode(TEST_CHAT_ID, NotificationMode.DAILY_DIGEST, nowTruncated);
 
+        // Act
         List<Long> chatIds = ormChatRepository.getChatIdsWithDigestTimeMatchingNow();
 
+        // Assert
         assertThat(chatIds.contains(TEST_CHAT_ID)).isTrue();
     }
 
     @Test
     @Transactional
     void shouldReturnEmptyListWhenNoChatWithDigestTimeMatchingNow() {
+        // Arrange
         ormChatRepository.updateNotificationMode(TEST_CHAT_ID, NotificationMode.DAILY_DIGEST, TEST_LOCAL_TIME);
 
+        // Act
         List<Long> chatIds = ormChatRepository.getChatIdsWithDigestTimeMatchingNow();
 
+        // Assert
         assertThat(chatIds.isEmpty()).isTrue();
     }
 }

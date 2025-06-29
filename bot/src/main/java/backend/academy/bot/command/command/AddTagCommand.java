@@ -8,14 +8,14 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.request.SendMessage;
 import org.springframework.stereotype.Component;
 
-@BotCommand(command = "/addtag", description = "Добавление тега к отслеживаемой ссылке.")
+@BotCommand(BotCommandInfo.ADD_TAG)
 @Component
 public class AddTagCommand extends AbstractTagCommand {
     private static final TagCommandConfig CONFIG = new TagCommandConfig(
-            "/addtag",
+            BotCommandInfo.ADD_TAG.commandName(),
             DialogType.ADD_TAG,
-            "Использование: /addtag",
-            "Ошибка. Пожалуйста, начните с /addtag",
+            "Использование: " + BotCommandInfo.ADD_TAG.commandName(),
+            "Ошибка. Пожалуйста, начните с " + BotCommandInfo.ADD_TAG.commandName(),
             "Укажите ссылку для добавления тега.",
             "Укажите тег для добавления к ссылке.",
             "Ссылка %s некорректна",

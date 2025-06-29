@@ -10,18 +10,18 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.request.SendMessage;
 import org.springframework.stereotype.Component;
 
-@BotCommand(command = "/setmode", description = "Настройка режима уведомлений.")
+@BotCommand(BotCommandInfo.SET_MODE)
 @Component
 public class UpdateNotificationModeCommand extends AbstractNotificationModeCommand implements TelegramCommand {
     private static final NotificationModeCommandConfig CONFIG = new NotificationModeCommandConfig(
-            "/setmode",
+            BotCommandInfo.SET_MODE.commandName(),
             DialogType.UPDATE_NOTIFICATION_MODE,
-            "Использование: /setmode",
-            "Ошибка. Пожалуйста, начните с /setmode",
+            "Использование: " + BotCommandInfo.SET_MODE.commandName(),
+            "Ошибка. Пожалуйста, начните с " + BotCommandInfo.SET_MODE.commandName(),
             "Режим уведомлений обновлен",
             "Ошибка! Режим уведомлений не обновлен.",
             "Произошла ошибка при обновлении режима уведомлений.",
-            "Выберите новый режим уведомлений:\n" + "1. Сразу\n" + "2. Дайджест раз в сутки",
+            "Выберите новый режим уведомлений:\n1. Сразу\n2. Дайджест раз в сутки",
             "Пожалуйста, введите 1 или 2.",
             "Введите время для получения дайджеста в формате HH:mm (например, 10:00)",
             "Неверный формат времени. Используйте HH:mm, например: 10:00");

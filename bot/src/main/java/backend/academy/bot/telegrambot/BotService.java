@@ -11,13 +11,16 @@ import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
 public class BotService {
+    @Getter
     private final TelegramBot bot;
+
     private final CommandHandler commandHandler;
 
     public BotService(BotConfig config, CommandHandler commandHandler) {
@@ -27,7 +30,7 @@ public class BotService {
 
     @PostConstruct
     public void start() {
-        log.atInfo().setMessage("Starting Telegram bot").log();
+        log.info("Starting Telegram bot");
 
         Map<String, String> commandsDescription = commandHandler.commandDescriptions();
         List<BotCommand> botCommands = new ArrayList<>();

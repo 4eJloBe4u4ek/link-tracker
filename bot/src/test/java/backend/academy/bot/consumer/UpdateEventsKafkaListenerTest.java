@@ -50,39 +50,44 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Import(UpdateEventsKafkaListenerTest.TestConfig.class)
 class UpdateEventsKafkaListenerTest extends BaseIntegrationTest {
     @Autowired
-    KafkaTemplate<Long, LinkUpdate> producer;
+    private KafkaTemplate<Long, LinkUpdate> producer;
 
     @Autowired
-    KafkaTemplate<byte[], byte[]> dlqProducer;
+    private KafkaTemplate<byte[], byte[]> dlqProducer;
 
     @MockitoBean
-    TelegramBot bot;
+    private TelegramBot bot;
 
     @MockitoBean
-    UpdateService updateService;
+    private UpdateService updateService;
 
     @Value("${app.update-events.topic}")
-    String topic;
+    private String topic;
 
     @Value("${app.update-events.dlq-topic}")
-    String dlq;
+    private String dlq;
 
     @Test
     void shouldProcessValidMessage() {
+        // Act
         producer.send(topic, TEST_GOOD_LINK_UPDATE);
 
+        // Assert
         verify(updateService, timeout(3_000)).processUpdate(eq(TEST_GOOD_LINK_UPDATE));
         verify(bot, never()).execute(any());
     }
 
     @Test
     void shouldSendToDlqWhenInvalidJsonReceived() {
+        // Arrange
         try (Consumer<byte[], byte[]> dlqConsumer = createDlqConsumer()) {
             dlqConsumer.subscribe(List.of(dlq));
             dlqConsumer.poll(Duration.ofMillis(500));
 
+            // Act
             dlqProducer.send(topic, INVALID_JSON.getBytes());
 
+            // Assert
             await().pollInterval(Duration.ofMillis(500))
                     .atMost(Duration.ofSeconds(3))
                     .untilAsserted(() -> {
@@ -99,6 +104,7 @@ class UpdateEventsKafkaListenerTest extends BaseIntegrationTest {
 
     @Test
     void shouldSendToDlqWhenServiceFails() {
+        // Arrange
         Mockito.doThrow(new LinkUpdateException("empty chat list"))
                 .when(updateService)
                 .processUpdate(eq(TEST_BAD_LINK_UPDATE));
@@ -107,10 +113,11 @@ class UpdateEventsKafkaListenerTest extends BaseIntegrationTest {
             dlqConsumer.subscribe(List.of(dlq));
             dlqConsumer.poll(Duration.ofMillis(500));
 
+            // Act
             producer.send(topic, TEST_BAD_LINK_UPDATE);
 
+            // Assert
             verify(updateService, timeout(3_000)).processUpdate(eq(TEST_BAD_LINK_UPDATE));
-
             await().pollInterval(Duration.ofMillis(500))
                     .atMost(Duration.ofSeconds(3))
                     .untilAsserted(() -> {

@@ -75,9 +75,11 @@ class OrmLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldAddLink() {
+        // Act
         TrackedLink trackedLink =
                 ormLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(TEST_TAG), List.of(TEST_FILTER));
 
+        // Assert
         assertThat(linkJpaRepository.findByUrl(TEST_URL)).isPresent();
         assertThat(trackedLink.url()).isEqualTo(TEST_URL);
         assertThat(trackedLink.tags().contains(TEST_TAG)).isTrue();
@@ -87,8 +89,10 @@ class OrmLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkAlreadyExists() {
+        // Arrange
         ormLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
+        // Act & Assert
         assertThrows(
                 LinkAlreadyExistsException.class,
                 () -> ormLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of()));
@@ -97,38 +101,48 @@ class OrmLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldRemoveLink() {
+        // Arrange
         ormLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
+        // Act
         ormLinkRepository.removeLink(TEST_CHAT_ID, TEST_URL);
 
+        // Assert
         assertThat(linkJpaRepository.findByUrl(TEST_URL)).isEmpty();
     }
 
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkDoesNotExist() {
+        // Act & Assert
         assertThrows(LinkNotFoundException.class, () -> ormLinkRepository.removeLink(TEST_CHAT_ID, TEST_URL));
     }
 
     @Test
     @Transactional
     void shouldUpdateLastCheckedTime() {
+        // Arrange
         TrackedLink trackedLink = ormLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
         LocalDateTime lastCheckedTime = LocalDateTime.now();
 
+        // Act
         ormLinkRepository.updateLastCheckedTime(trackedLink, lastCheckedTime);
-        LinkEntity link = linkJpaRepository.findByUrl(TEST_URL).orElseThrow();
 
+        // Assert
+        LinkEntity link = linkJpaRepository.findByUrl(TEST_URL).orElseThrow();
         assertThat(link.updatedAt()).isEqualTo(lastCheckedTime);
     }
 
     @Test
     @Transactional
     void shouldReturnLinksByChat() {
+        // Arrange
         ormLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
+        // Act
         List<TrackedLink> links = ormLinkRepository.getLinksByChat(TEST_CHAT_ID, 0);
 
+        // Assert
         assertThat(links.size()).isEqualTo(1);
         assertThat(links.getFirst().url()).isEqualTo(TEST_URL);
     }
@@ -136,10 +150,13 @@ class OrmLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldReturnAllLinks() {
+        // Arrange
         ormLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
+        // Act
         List<TrackedLink> links = ormLinkRepository.getAllLinks(0);
 
+        // Assert
         assertThat(links.size()).isEqualTo(1);
         assertThat(links.getFirst().url()).isEqualTo(TEST_URL);
     }
@@ -147,10 +164,13 @@ class OrmLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldReturnLinksByChatAndTag() {
+        // Arrange
         ormLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(TEST_TAG), List.of());
 
+        // Act
         List<TrackedLink> links = ormLinkRepository.getLinksByChatAndTag(TEST_CHAT_ID, TEST_TAG, 0);
 
+        // Assert
         assertThat(links.size()).isEqualTo(1);
         assertThat(links.getFirst().url()).isEqualTo(TEST_URL);
         assertThat(links.getFirst().tags()).isEqualTo(List.of(TEST_TAG));
@@ -159,10 +179,13 @@ class OrmLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldReturnChatsForLink() {
+        // Arrange
         TrackedLink trackedLink = ormLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
+        // Act
         List<Long> chats = ormLinkRepository.getChatsForLink(trackedLink, 0);
 
+        // Assert
         assertThat(chats.size()).isEqualTo(1);
         assertThat(chats.getFirst()).isEqualTo(TEST_CHAT_ID);
     }
@@ -170,10 +193,13 @@ class OrmLinkRepositoryTest extends BaseIntegrationTest {
     @Test
     @Transactional
     void shouldReturnFiltersForChatAndLink() {
+        // Arrange
         TrackedLink trackedLink = ormLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of(TEST_FILTER));
 
+        // Act
         List<String> filters = ormLinkRepository.getFiltersForChatAndLink(TEST_CHAT_ID, trackedLink);
 
+        // Assert
         assertThat(filters.size()).isEqualTo(1);
         assertThat(filters.contains(TEST_FILTER)).isTrue();
     }

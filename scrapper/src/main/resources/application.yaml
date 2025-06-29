@@ -22,7 +22,7 @@ spring:
   application:
     name: Scrapper
   datasource:
-    url: jdbc:postgresql://localhost:5433/scrapper
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/scrapper}
     username: postgres
     password: password
   liquibase:
@@ -32,7 +32,7 @@ spring:
       ddl-auto: validate
     open-in-view: false
   kafka:
-    bootstrap-servers: localhost:19092
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
     producer.properties:
       acks: 1
       batch.size: 1024
@@ -42,8 +42,8 @@ spring:
       connect-string: localhost:2181
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
 
 resilience4j:
   retry:
@@ -89,6 +89,30 @@ resilience4j:
 bucket:
   capacity: 10
   duration: 1m
+
+management:
+  server:
+    port: 8091
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,health,info
+      base-path: /
+      path-mapping:
+        prometheus: metrics
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        custom_scrape_time: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+        custom_scrape_time: 0.5,0.95,0.99
+
+bot:
+  base-url: ${BOT_BASE_URL:http://localhost:8080}
 
 server:
   port: 8081
