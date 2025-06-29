@@ -10,6 +10,7 @@ import backend.academy.scrapper.repository.jpa.repo.ChatJpaRepository;
 import backend.academy.scrapper.repository.jpa.repo.FilterJpaRepository;
 import backend.academy.scrapper.repository.jpa.repo.LinkJpaRepository;
 import backend.academy.scrapper.repository.jpa.repo.TagJpaRepository;
+import backend.academy.shared.dto.NotificationMode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +47,7 @@ class OrmChatRepositoryTest {
     @Transactional
     void shouldSaveChat() {
         Long chatId = 12345L;
-        ormChatRepository.registerChat(chatId);
+        ormChatRepository.registerChat(chatId, NotificationMode.IMMEDIATE, null);
 
         assertThat(chatJpaRepository.findById(chatId)).isPresent();
     }
@@ -55,16 +56,18 @@ class OrmChatRepositoryTest {
     @Transactional
     void shouldThrowExceptionIfChatAlreadyExists() {
         Long chatId = 12345L;
-        ormChatRepository.registerChat(chatId);
+        ormChatRepository.registerChat(chatId, NotificationMode.IMMEDIATE, null);
 
-        assertThrows(ChatAlreadyExistsException.class, () -> ormChatRepository.registerChat(chatId));
+        assertThrows(
+                ChatAlreadyExistsException.class,
+                () -> ormChatRepository.registerChat(chatId, NotificationMode.IMMEDIATE, null));
     }
 
     @Test
     @Transactional
     void shouldDeleteChat() {
         Long chatId = 12345L;
-        ormChatRepository.registerChat(chatId);
+        ormChatRepository.registerChat(chatId, NotificationMode.IMMEDIATE, null);
 
         ormChatRepository.deleteChat(chatId);
 

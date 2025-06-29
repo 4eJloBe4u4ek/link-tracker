@@ -8,6 +8,7 @@ import java.util.Optional;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 @ConditionalOnProperty(name = "app.access-type", havingValue = "SQL")
@@ -21,6 +22,7 @@ public class SqlTagRepository extends BaseSqlRepository implements TagOperationR
         super(jdbcTemplate);
     }
 
+    @Transactional
     @Override
     public void addTagToLink(Long chatId, String url, String tag) {
         if (getLinkId(url).isEmpty()) {
@@ -38,6 +40,7 @@ public class SqlTagRepository extends BaseSqlRepository implements TagOperationR
         jdbcTemplate.update(ADD_CHAT_LINK_TAG, chatId, linkId, tagId);
     }
 
+    @Transactional
     @Override
     public void removeTagFromLink(Long chatId, String url, String tag) {
         if (getLinkId(url).isEmpty()) {

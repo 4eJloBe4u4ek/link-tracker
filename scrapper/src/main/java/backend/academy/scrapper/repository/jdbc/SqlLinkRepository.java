@@ -64,6 +64,13 @@ public class SqlLinkRepository extends BaseSqlRepository implements LinkOperatio
             "DELETE FROM chat_link_filters WHERE link_id = ? AND chat_id = ?";
     private static final String DELETE_UNUSED_LINK =
             "DELETE FROM links WHERE id NOT IN (SELECT DISTINCT link_id FROM chats_links)";
+    private static final String GET_FILTERS_BY_CHAT_AND_LINK =
+            """
+        SELECT f.name
+        FROM chat_link_filters clf
+        JOIN filters f ON clf.filter_id = f.id
+        WHERE clf.chat_id = ? AND clf.link_id = (SELECT l.id FROM links l WHERE url = ?)
+        """;
 
     private final RowMapper<TrackedLink> trackedLinkRowMapper = (rs, rowNum) -> new TrackedLink(
             rs.getLong("id"),
@@ -144,6 +151,12 @@ public class SqlLinkRepository extends BaseSqlRepository implements LinkOperatio
     @Override
     public void updateLastCheckedTime(TrackedLink trackedLink, LocalDateTime lastCheckedTime) {
         jdbcTemplate.update(UPDATE_LAST_CHECKED_TIME, lastCheckedTime, trackedLink.url());
+    }
+
+    @Transactional
+    @Override
+    public List<String> getFiltersForChatAndLink(Long chatId, TrackedLink trackedLink) {
+        return jdbcTemplate.queryForList(GET_FILTERS_BY_CHAT_AND_LINK, String.class, chatId, trackedLink.url());
     }
 
     private TrackedLink getLinkById(Long linkId) {

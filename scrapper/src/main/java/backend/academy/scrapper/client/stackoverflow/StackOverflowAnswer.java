@@ -5,15 +5,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import java.time.LocalDateTime;
 
-public record StackoverflowQuestion(
+public record StackOverflowAnswer(
+        @JsonProperty("answer_id") Long answerId,
         @JsonProperty("question_id") Long questionId,
-        @JsonProperty("owner") StackoverflowOwner owner,
+        @JsonProperty("owner") StackOverflowOwner owner,
+        @JsonProperty("body") String body,
         @JsonProperty("creation_date") @JsonDeserialize(using = UnixToLocalDateTimeDeserializer.class)
                 LocalDateTime creationDate,
         @JsonProperty("last_activity_date") @JsonDeserialize(using = UnixToLocalDateTimeDeserializer.class)
                 LocalDateTime lastActivityDate,
         @JsonProperty("last_edit_date") @JsonDeserialize(using = UnixToLocalDateTimeDeserializer.class)
-                LocalDateTime lastEditDate,
-        @JsonProperty("title") String title,
-        @JsonProperty("is_answered") Boolean isAnswered,
-        @JsonProperty("answer_count") int answerCount) {}
+                LocalDateTime lastEditDate) {}

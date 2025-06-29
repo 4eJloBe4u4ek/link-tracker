@@ -6,6 +6,7 @@ import static org.junit.Assert.assertThrows;
 import backend.academy.scrapper.TestcontainersConfiguration;
 import backend.academy.scrapper.exception.ChatAlreadyExistsException;
 import backend.academy.scrapper.exception.ChatNotFoundException;
+import backend.academy.shared.dto.NotificationMode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,7 +34,7 @@ class SqlChatRepositoryTest {
     @Transactional
     void shouldSaveChat() {
         Long chatId = 12345L;
-        sqlChatRepository.registerChat(chatId);
+        sqlChatRepository.registerChat(chatId, NotificationMode.IMMEDIATE, null);
 
         Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM chats WHERE id = ?", Integer.class, chatId);
         assertThat(count).isEqualTo(1);
@@ -43,16 +44,18 @@ class SqlChatRepositoryTest {
     @Transactional
     void shouldThrowExceptionIfChatAlreadyExists() {
         Long chatId = 12345L;
-        sqlChatRepository.registerChat(chatId);
+        sqlChatRepository.registerChat(chatId, NotificationMode.IMMEDIATE, null);
 
-        assertThrows(ChatAlreadyExistsException.class, () -> sqlChatRepository.registerChat(chatId));
+        assertThrows(
+                ChatAlreadyExistsException.class,
+                () -> sqlChatRepository.registerChat(chatId, NotificationMode.IMMEDIATE, null));
     }
 
     @Test
     @Transactional
     void shouldDeleteChat() {
         Long chatId = 12345L;
-        sqlChatRepository.registerChat(chatId);
+        sqlChatRepository.registerChat(chatId, NotificationMode.IMMEDIATE, null);
 
         sqlChatRepository.deleteChat(chatId);
 

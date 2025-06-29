@@ -2,40 +2,40 @@ package backend.academy.bot.command.command;
 
 import backend.academy.bot.command.BotCommand;
 import backend.academy.bot.command.TelegramCommand;
+import backend.academy.bot.dialog.DialogService;
+import backend.academy.bot.dialog.DialogType;
+import backend.academy.bot.dialog.TrackingContext;
 import backend.academy.bot.service.CommandService;
 import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.SendMessage;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @BotCommand(command = "/start", description = "Регистрация в боте.")
 @Component
-@RequiredArgsConstructor
-public class StartCommand implements TelegramCommand {
-    private static final String SPACE_SPLIT_REGEX = "\\s+";
-    private static final String COMMAND_NAME = "/start";
-    private static final String USAGE_MESSAGE = "Использование: " + COMMAND_NAME;
-    private static final String SUCCESS_MESSAGE = "Привет! Я бот для отслеживания ссылок.";
-    private static final String ALREADY_EXISTS_MESSAGE = "Чат уже существует!";
-    private static final String ERROR_MESSAGE = "Произошла ошибка при регистрации чата.";
-    private final CommandService commandService;
+public class StartCommand extends AbstractNotificationModeCommand implements TelegramCommand {
+    private static final NotificationModeCommandConfig CONFIG = new NotificationModeCommandConfig(
+            "/start",
+            DialogType.START,
+            "Использование: /start",
+            "Ошибка. Пожалуйста, начните с /start",
+            "Регистрация завершена!",
+            "Чат уже существует!",
+            "Произошла ошибка при регистрации чата.",
+            "Привет! Я бот для отслеживания ссылок.\nПожалуйста, выберите режим уведомлений:\n1. Сразу\n2. Дайджест раз в сутки",
+            "Пожалуйста, введите 1 или 2.",
+            "Введите время для получения дайджеста в формате HH:mm (например, 10:00)",
+            "Неверный формат времени. Используйте HH:mm, например: 10:00");
+
+    public StartCommand(CommandService commandService, DialogService dialogService) {
+        super(commandService, dialogService, CONFIG);
+    }
 
     @Override
-    public void execute(Update update, TelegramBot bot) {
-        Long chatId = update.message().chat().id();
-        String[] messageParts = update.message().text().split(SPACE_SPLIT_REGEX);
-
-        if (messageParts.length != 1) {
-            bot.execute(new SendMessage(chatId, USAGE_MESSAGE));
-            return;
-        }
-
+    protected void performOperation(Long chatId, TrackingContext trackingContext, TelegramBot bot) {
         commandService
-                .registerChat(chatId)
+                .registerChat(chatId, trackingContext.notificationMode(), trackingContext.digestTime())
                 .subscribe(
-                        success -> bot.execute(
-                                new SendMessage(chatId, success ? SUCCESS_MESSAGE : ALREADY_EXISTS_MESSAGE)),
-                        error -> bot.execute(new SendMessage(chatId, ERROR_MESSAGE)));
+                        success -> bot.execute(new SendMessage(chatId, success ? CONFIG.success() : CONFIG.failure())),
+                        error -> bot.execute(new SendMessage(chatId, CONFIG.error())));
     }
 }

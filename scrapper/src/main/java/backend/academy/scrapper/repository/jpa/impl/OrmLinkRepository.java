@@ -139,6 +139,19 @@ public class OrmLinkRepository extends BaseOrmRepository implements LinkOperatio
         linkJpaRepository.save(link);
     }
 
+    @Transactional
+    @Override
+    public List<String> getFiltersForChatAndLink(Long chatId, TrackedLink trackedLink) {
+        ChatEntity chat = getChatOrThrow(chatId);
+        LinkEntity link = getLinkOrThrow(trackedLink.url());
+        List<ChatLinkFilterEntity> filters = chatLinkFilterJpaRepository.findAllByChatAndLink(chat, link);
+
+        return filters.stream()
+                .map(ChatLinkFilterEntity::filter)
+                .map(FilterEntity::name)
+                .toList();
+    }
+
     private LinkEntity createNewLink(String url) {
         LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
         LinkEntity link = new LinkEntity();

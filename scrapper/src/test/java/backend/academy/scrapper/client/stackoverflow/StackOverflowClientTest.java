@@ -18,22 +18,22 @@ import org.springframework.http.MediaType;
 import reactor.test.StepVerifier;
 
 @ExtendWith(WireMockExtension.class)
-public class StackoverflowClientTest {
+public class StackOverflowClientTest {
 
     @RegisterExtension
     static WireMockExtension wireMock = WireMockExtension.newInstance()
             .options(wireMockConfig().dynamicPort())
             .build();
 
-    private StackoverflowClient stackoverflowClient;
+    private StackOverflowClient stackoverflowClient;
 
     @BeforeEach
     void setUp() {
         ScrapperConfig.StackOverflowCredentials stackOverflowCredentials =
                 new ScrapperConfig.StackOverflowCredentials("testKey", "testToken", wireMock.baseUrl());
-        ScrapperConfig config = new ScrapperConfig(null, 100, null, null, stackOverflowCredentials);
+        ScrapperConfig config = new ScrapperConfig(null, null, 100, null, null, stackOverflowCredentials, null);
 
-        stackoverflowClient = new StackoverflowClient(config);
+        stackoverflowClient = new StackOverflowClient(config);
     }
 
     @Test

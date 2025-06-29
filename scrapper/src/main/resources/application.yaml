@@ -1,5 +1,6 @@
 app:
   access-type: ORM
+  message-transport: KAFKA
   batch-size: 100
   scheduler:
     interval: 30000
@@ -11,6 +12,11 @@ app:
     key: ${SO_TOKEN_KEY}
     access-token: ${SO_ACCESS_TOKEN}
     base-url: https://api.stackexchange.com/2.3
+  update-events:
+    topic: updates
+    dlq-topic: updates-dlq
+    partitions: 1
+    replicas: 1
 
 spring:
   application:
@@ -25,6 +31,15 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  kafka:
+    bootstrap-servers: localhost:19092
+    producer.properties:
+      acks: 1
+      batch.size: 1024
+      linger.ms: 10000
+    cloud.zookeeper:
+      config.enabled: false
+      connect-string: localhost:2181
 
 server:
   port: 8081

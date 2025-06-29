@@ -44,16 +44,16 @@
         </dependency>
 
         <!-- Redis -->
-        <!--        <dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
-        </dependency>-->
+        </dependency>
 
         <!-- Kafka -->
-        <!--        <dependency>-->
-        <!--            <groupId>org.springframework.kafka</groupId>-->
-        <!--            <artifactId>spring-kafka</artifactId>-->
-        <!--        </dependency>-->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
 
         <!-- Actuator -->
         <dependency>
@@ -118,11 +118,17 @@
             <artifactId>kafka</artifactId>
             <scope>test</scope>
         </dependency>
-        <!--        <dependency>-->
-        <!--            <groupId>org.springframework.kafka</groupId>-->
-        <!--            <artifactId>spring-kafka-test</artifactId>-->
-        <!--            <scope>test</scope>-->
-        <!--        </dependency>-->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.18.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

@@ -1,5 +1,11 @@
 app:
   telegram-token: ${TELEGRAM_TOKEN} # env variable
+  update-events:
+    topic: updates
+    dlq-topic: updates-dlq
+    consumer-group-id: bot-consumer-group
+    concurrency: 1
+    trusted-packages: backend.academy.shared.dto
 
 spring:
   application:
@@ -10,6 +16,20 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  kafka:
+    bootstrap-servers: localhost:19092
+    consumer.properties:
+      enable.auto.commit: false
+      auto.offset.reset: earliest
+      isolation.level: read_committed
+      fetch.min.bytes: 1024
+      fetch.max.bytes: 1048576
+      fetch.max.wait.ms: 10000
+      max.poll.interval.ms: 10000
+      max.poll.records: 10
+    cloud.zookeeper:
+      config.enabled: false
+      connect-string: localhost:2181
 
 server:
   port: 8080

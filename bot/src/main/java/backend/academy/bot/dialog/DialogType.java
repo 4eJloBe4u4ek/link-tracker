@@ -5,5 +5,9 @@ public enum DialogType {
     UNTRACK,
     LINKS_BY_TAG,
     ADD_TAG,
-    REMOVE_TAG
+    REMOVE_TAG,
+    ADD_FILTER,
+    REMOVE_FILTER,
+    UPDATE_NOTIFICATION_MODE,
+    START
 }
