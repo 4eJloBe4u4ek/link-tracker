@@ -1,11 +1,12 @@
 package backend.academy.bot.command.command;
 
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import backend.academy.bot.dialog.DialogService;
 import backend.academy.bot.dialog.DialogType;
-import backend.academy.bot.dialog.TrackingContext;
+import backend.academy.bot.dialog.TrackState;
 import backend.academy.bot.service.CommandService;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Chat;
@@ -24,13 +25,12 @@ class UntrackCommandTest {
     private Update update;
     private Message message;
     private Chat chat;
-    private TrackingContext trackingContext;
 
     @BeforeEach
     void setUp() {
         bot = mock(TelegramBot.class);
         commandService = mock(CommandService.class);
-        dialogService = mock(DialogService.class);
+        dialogService = new DialogService();
         untrackCommand = new UntrackCommand(commandService, dialogService);
 
         update = mock(Update.class);
@@ -40,8 +40,6 @@ class UntrackCommandTest {
         when(update.message()).thenReturn(message);
         when(message.chat()).thenReturn(chat);
         when(chat.id()).thenReturn(123L);
-
-        trackingContext = new TrackingContext(123L, DialogType.UNTRACK);
     }
 
     @Test
@@ -57,13 +55,12 @@ class UntrackCommandTest {
     }
 
     @Test
-    void shouldStartUntrackingDialog() {
+    void shouldStartUntrackDialog() {
         when(message.text()).thenReturn("/untrack");
-        when(dialogService.getDialog(123L)).thenReturn(null);
 
         untrackCommand.execute(update, bot);
 
-        Mockito.verify(dialogService).startDialog(123L, DialogType.UNTRACK);
+        assertThat(dialogService.getDialog(123L).dialogType()).isEqualTo(DialogType.UNTRACK);
         Mockito.verify(bot)
                 .execute(Mockito.argThat(msg -> msg.getParameters()
                                 .get("chat_id")
@@ -73,8 +70,9 @@ class UntrackCommandTest {
 
     @Test
     void shouldUntrackValidUrlSuccessfully() {
+        dialogService.startDialog(123L, DialogType.UNTRACK);
+        dialogService.getDialog(123L).trackState(TrackState.AWAITING_URL);
         when(message.text()).thenReturn("http://example.com");
-        when(dialogService.getDialog(123L)).thenReturn(trackingContext);
         when(commandService.untrackLink(123L, "http://example.com")).thenReturn(Mono.just(true));
 
         untrackCommand.execute(update, bot);
@@ -85,14 +83,14 @@ class UntrackCommandTest {
                                 && msg.getParameters()
                                         .get("text")
                                         .equals("Ссылка http://example.com больше не отслеживается")));
-
-        Mockito.verify(dialogService).endDialog(123L);
+        assertThat(dialogService.getDialog(123L)).isNull();
     }
 
     @Test
     void shouldHandleUntrackFailure() {
+        dialogService.startDialog(123L, DialogType.UNTRACK);
+        dialogService.getDialog(123L).trackState(TrackState.AWAITING_URL);
         when(message.text()).thenReturn("http://example.com");
-        when(dialogService.getDialog(123L)).thenReturn(trackingContext);
         when(commandService.untrackLink(123L, "http://example.com")).thenReturn(Mono.just(false));
 
         untrackCommand.execute(update, bot);
@@ -105,7 +103,6 @@ class UntrackCommandTest {
                                                 .get("text")
                                                 .equals(
                                                         "Ошибка! Невозможно прекратить отслеживание ссылки: http://example.com")));
-
-        Mockito.verify(dialogService).endDialog(123L);
+        assertThat(dialogService.getDialog(123L)).isNull();
     }
 }

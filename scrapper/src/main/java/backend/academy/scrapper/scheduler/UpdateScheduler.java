@@ -1,130 +1,212 @@
 package backend.academy.scrapper.scheduler;
 
-import backend.academy.scrapper.botclient.BotClient;
 import backend.academy.scrapper.client.github.GithubClient;
-import backend.academy.scrapper.client.github.GithubComment;
-import backend.academy.scrapper.client.github.GithubCommit;
-import backend.academy.scrapper.client.github.GithubIssue;
 import backend.academy.scrapper.client.stackoverflow.StackoverflowClient;
-import backend.academy.scrapper.repository.InMemoryRepository;
+import backend.academy.scrapper.client.stackoverflow.StackoverflowQuestion;
+import backend.academy.scrapper.config.ScrapperConfig;
+import backend.academy.scrapper.repository.LinkOperationRepository;
+import backend.academy.scrapper.scheduler.util.MessageFormatter;
 import backend.academy.shared.dto.LinkUpdate;
 import backend.academy.shared.dto.TrackedLink;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Controller;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-@Controller
+@Slf4j
+@Service
 public class UpdateScheduler {
-    private final BotClient botClient;
+    private final ScrapperConfig scrapperConfig;
     private final GithubClient githubClient;
     private final StackoverflowClient stackoverflowClient;
-    private final InMemoryRepository inMemoryRepository;
+    private final LinkOperationRepository linkOperationRepository;
+    private final UpdateSender updateSender;
     private final AtomicLong linkUpdateIdGenerator = new AtomicLong(1);
+    private final ExecutorService executorService;
+
+    private static final Pattern GITHUB_LINK_PATTERN = Pattern.compile("^https://github\\.com/([\\w-]+)/([\\w-]+)/?.*");
+    private static final Pattern STACKOVERFLOW_LINK_PATTERN =
+            Pattern.compile("^https://stackoverflow\\.com/questions/(\\d+)/?.*");
 
     public UpdateScheduler(
+            ScrapperConfig scrapperConfig,
             GithubClient githubClient,
             StackoverflowClient stackoverflowClient,
-            BotClient botClient,
-            InMemoryRepository inMemoryRepository) {
+            LinkOperationRepository linkOperationRepository,
+            UpdateSender updateSender) {
+        this.scrapperConfig = scrapperConfig;
         this.githubClient = githubClient;
         this.stackoverflowClient = stackoverflowClient;
-        this.botClient = botClient;
-        this.inMemoryRepository = inMemoryRepository;
+        this.linkOperationRepository = linkOperationRepository;
+        this.updateSender = updateSender;
+        this.executorService =
+                Executors.newFixedThreadPool(scrapperConfig.scheduler().threadCount());
     }
 
-    @Scheduled(fixedRate = 30_000)
+    @Scheduled(fixedDelayString = "#{scheduler.interval()}")
     public void checkUpdates() {
-        Map<String, TrackedLink> uniqueTrackedLinks = inMemoryRepository.trackedLinks().values().stream()
-                .flatMap(List::stream)
-                .collect(Collectors.toMap(TrackedLink::url, trackedLink -> trackedLink, (tl1, tl2) -> tl1));
+        log.atInfo().setMessage("Checking updates...").log();
 
-        for (TrackedLink trackedLink : uniqueTrackedLinks.values()) {
-            checkLinkUpdates(trackedLink);
+        int page = 0;
+        int chunkSize = scrapperConfig.batchSize() / scrapperConfig.scheduler().threadCount();
+        List<TrackedLink> trackedLinks;
+        do {
+            trackedLinks = linkOperationRepository.getAllLinks(page++);
+            if (!trackedLinks.isEmpty()) {
+                log.atInfo()
+                        .setMessage("Processing batch of links")
+                        .addKeyValue("batchSize", trackedLinks.size())
+                        .log();
+                processLinksMultithreaded(trackedLinks, chunkSize);
+            }
+        } while (!trackedLinks.isEmpty());
+
+        log.atInfo().setMessage("Finished checking updates").log();
+    }
+
+    private void processLinksMultithreaded(List<TrackedLink> trackedLinks, int chunkSize) {
+        List<List<TrackedLink>> partitions = new ArrayList<>();
+        for (int i = 0; i < trackedLinks.size(); i += chunkSize) {
+            partitions.add(trackedLinks.subList(i, Math.min(i + chunkSize, trackedLinks.size())));
         }
+
+        List<CompletableFuture<Void>> futures = partitions.stream()
+                .map(subList ->
+                        CompletableFuture.runAsync(() -> subList.forEach(this::checkLinkUpdates), executorService))
+                .toList();
+
+        CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
     }
 
     private void checkLinkUpdates(TrackedLink trackedLink) {
         String url = trackedLink.url();
-        if (url.contains("github")) {
-            handleGithubUpdate(trackedLink);
-        } else if (url.contains("stackoverflow")) {
-            handleStackoverflowUpdate(trackedLink);
+        Matcher githubMatcher = GITHUB_LINK_PATTERN.matcher(url);
+        Matcher stackoverflowMatcher = STACKOVERFLOW_LINK_PATTERN.matcher(url);
+
+        CompletableFuture<Void> updateFuture;
+
+        if (githubMatcher.matches()) {
+            String owner = githubMatcher.group(1);
+            String repo = githubMatcher.group(2);
+            updateFuture = handleGithubUpdate(trackedLink, owner, repo);
+        } else if (stackoverflowMatcher.matches()) {
+            Long questionId = Long.parseLong(stackoverflowMatcher.group(1));
+            updateFuture = handleStackoverflowUpdate(trackedLink, questionId);
+        } else {
+            log.atWarn()
+                    .setMessage("Unknown url pattern, skipping link")
+                    .addKeyValue("url", url)
+                    .log();
+            return;
         }
+
+        updateFuture.thenRun(() ->
+                linkOperationRepository.updateLastCheckedTime(trackedLink, LocalDateTime.now(ZoneId.systemDefault())));
     }
 
-    private void handleGithubUpdate(TrackedLink trackedLink) {
-        String[] parts = trackedLink.url().split("/");
-        String owner = parts[parts.length - 2];
-        String repo = parts[parts.length - 1];
+    private CompletableFuture<Void> handleGithubUpdate(TrackedLink trackedLink, String owner, String repo) {
+        return githubClient
+                .getRepositoryUpdates(owner, repo, trackedLink.updatedAt())
+                .flatMap(githubUpdates -> {
+                    if (githubUpdates == null) {
+                        return Mono.empty();
+                    }
 
-        githubClient.getRepositoryUpdates(owner, repo).subscribe(githubUpdates -> {
-            List<GithubCommit> newCommits = githubUpdates.commits().stream()
-                    .filter(githubCommit ->
-                            githubCommit.commit().committer().date().isAfter(trackedLink.updatedAt()))
-                    .toList();
-            List<GithubIssue> newIssues = githubUpdates.issues().stream()
-                    .filter(githubIssue -> githubIssue.createdAt().isAfter(trackedLink.updatedAt()))
-                    .toList();
+                    List<Long> tgChatIds = getTgChatIds(trackedLink);
 
-            List<GithubComment> newComments = githubUpdates.comments().stream()
-                    .filter(githubComment -> githubComment.createdAt().isAfter(trackedLink.updatedAt()))
-                    .toList();
-
-            List<Long> tgChatIds = inMemoryRepository.getChatsForTrackedLink(trackedLink.url());
-
-            for (GithubCommit githubCommit : newCommits) {
-                botClient
-                        .updateLink(new LinkUpdate(
-                                linkUpdateIdGenerator.getAndIncrement(),
-                                trackedLink.url(),
-                                githubCommit.commit().message(),
-                                tgChatIds))
-                        .subscribe();
-            }
-
-            for (GithubIssue githubIssue : newIssues) {
-                botClient
-                        .updateLink(new LinkUpdate(
-                                linkUpdateIdGenerator.getAndIncrement(),
-                                trackedLink.url(),
-                                githubIssue.title(),
-                                tgChatIds))
-                        .subscribe();
-            }
-
-            for (GithubComment githubComment : newComments) {
-                botClient
-                        .updateLink(new LinkUpdate(
-                                linkUpdateIdGenerator.getAndIncrement(),
-                                trackedLink.url(),
-                                githubComment.body(),
-                                tgChatIds))
-                        .subscribe();
-            }
-
-            inMemoryRepository.updateLastCheckedTime(trackedLink, LocalDateTime.now());
-        });
+                    return Flux.concat(
+                                    Flux.fromIterable(githubUpdates.commits())
+                                            .flatMap(githubCommit -> sendUpdate(
+                                                    trackedLink,
+                                                    tgChatIds,
+                                                    MessageFormatter.formatGithubCommit(githubCommit))),
+                                    Flux.fromIterable(githubUpdates.issues())
+                                            .flatMap(githubIssue -> sendUpdate(
+                                                    trackedLink,
+                                                    tgChatIds,
+                                                    MessageFormatter.formatGithubIssue(githubIssue))),
+                                    Flux.fromIterable(githubUpdates.comments())
+                                            .flatMap(githubComment -> sendUpdate(
+                                                    trackedLink,
+                                                    tgChatIds,
+                                                    MessageFormatter.formatGithubComment(githubComment))),
+                                    Flux.fromIterable(githubUpdates.pullRequests())
+                                            .flatMap(githubPullRequest -> sendUpdate(
+                                                    trackedLink,
+                                                    tgChatIds,
+                                                    MessageFormatter.formatGithubPullRequest(githubPullRequest))))
+                            .then();
+                })
+                .toFuture();
     }
 
-    private void handleStackoverflowUpdate(TrackedLink trackedLink) {
-        String question = trackedLink.url().substring(trackedLink.url().lastIndexOf("/") + 1);
-        stackoverflowClient.getQuestion(Long.parseLong(question)).subscribe(questionUpdates -> {
-            List<Long> tgChatIds = inMemoryRepository.getChatsForTrackedLink(trackedLink.url());
-            if (questionUpdates.lastActivityDate().isAfter(trackedLink.updatedAt())) {
-                botClient
-                        .updateLink(new LinkUpdate(
-                                linkUpdateIdGenerator.getAndIncrement(),
-                                trackedLink.url(),
-                                questionUpdates.title(),
-                                tgChatIds))
-                        .subscribe();
-            }
+    private CompletableFuture<Void> handleStackoverflowUpdate(TrackedLink trackedLink, Long questionId) {
+        return stackoverflowClient
+                .getStackoverflowUpdates(questionId, trackedLink.updatedAt())
+                .flatMap(stackoverflowUpdates -> {
+                    if (stackoverflowUpdates == null) {
+                        return Mono.empty();
+                    }
 
-            inMemoryRepository.updateLastCheckedTime(trackedLink, LocalDateTime.now());
-        });
+                    List<Long> tgChatIds = getTgChatIds(trackedLink);
+                    StackoverflowQuestion stackoverflowQuestion = stackoverflowUpdates.question();
+
+                    return Flux.concat(
+                                    Flux.just(stackoverflowQuestion)
+                                            .filter(question ->
+                                                    question.lastActivityDate().isAfter(trackedLink.updatedAt()))
+                                            .flatMap(question -> sendUpdate(
+                                                    trackedLink,
+                                                    tgChatIds,
+                                                    MessageFormatter.formatStackoverflowQuestion(question))),
+                                    Flux.fromIterable(stackoverflowUpdates.answers())
+                                            .flatMap(stackoverflowAnswer -> sendUpdate(
+                                                    trackedLink,
+                                                    tgChatIds,
+                                                    MessageFormatter.formatStackoverflowAnswer(
+                                                            stackoverflowQuestion, stackoverflowAnswer))),
+                                    Flux.fromIterable(stackoverflowUpdates.commentsToQuestion())
+                                            .flatMap(stackoverflowComment -> sendUpdate(
+                                                    trackedLink,
+                                                    tgChatIds,
+                                                    MessageFormatter.formatStackoverflowComment(
+                                                            stackoverflowQuestion, stackoverflowComment))),
+                                    Flux.fromIterable(stackoverflowUpdates.commentsToAnswers())
+                                            .flatMap(stackoverflowComment -> sendUpdate(
+                                                    trackedLink,
+                                                    tgChatIds,
+                                                    MessageFormatter.formatStackoverflowComment(
+                                                            stackoverflowQuestion, stackoverflowComment))))
+                            .then();
+                })
+                .toFuture();
+    }
+
+    private Mono<Void> sendUpdate(TrackedLink trackedLink, List<Long> tgChatIds, String message) {
+        return updateSender.sendUpdate(
+                new LinkUpdate(linkUpdateIdGenerator.getAndIncrement(), trackedLink.url(), message, tgChatIds));
+    }
+
+    private List<Long> getTgChatIds(TrackedLink trackedLink) {
+        int page = 0;
+        List<Long> tgChatIds = new ArrayList<>();
+        List<Long> batch;
+        do {
+            batch = linkOperationRepository.getChatsForLink(trackedLink, page++);
+            tgChatIds.addAll(batch);
+        } while (!batch.isEmpty());
+
+        return tgChatIds;
     }
 }

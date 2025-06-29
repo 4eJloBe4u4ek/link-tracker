@@ -7,11 +7,12 @@ import java.time.LocalDateTime;
 
 public record GithubCommit(@JsonProperty("commit") Commit commit) {
     public record Commit(
-            @JsonProperty("committer") Committer committer,
+            @JsonProperty("author") Author author,
             @JsonProperty("url") String url,
             @JsonProperty("message") String message) {}
 
-    public record Committer(
+    public record Author(
+            @JsonProperty("id") Long id,
             @JsonProperty("name") String name,
             @JsonProperty("date") @JsonDeserialize(using = UtcToSystemDefaultDeserializer.class) LocalDateTime date) {}
 }

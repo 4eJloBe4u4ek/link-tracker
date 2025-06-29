@@ -1,17 +1,32 @@
 package backend.academy.scrapper.config;
 
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Positive;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Bean;
 import org.springframework.validation.annotation.Validated;
 
 @Validated
 @ConfigurationProperties(prefix = "app", ignoreUnknownFields = false)
 public record ScrapperConfig(
-        @NotEmpty String githubToken, String githubBaseUrl, StackOverflowCredentials stackOverflow) {
+        AccessType accessType,
+        @Positive int batchSize,
+        @Bean Scheduler scheduler,
+        GithubCredentials github,
+        StackOverflowCredentials stackOverflow) {
 
-    public ScrapperConfig {
-        if (githubBaseUrl == null || githubBaseUrl.isBlank()) {
-            githubBaseUrl = "https://api.github.com";
+    public enum AccessType {
+        SQL,
+        ORM
+    }
+
+    public record Scheduler(@Positive int interval, @Positive int threadCount) {}
+
+    public record GithubCredentials(@NotEmpty String token, String baseUrl) {
+        public GithubCredentials {
+            if (baseUrl == null || baseUrl.isBlank()) {
+                baseUrl = "https://api.github.com";
+            }
         }
     }
 

@@ -1,21 +1,29 @@
 package backend.academy.scrapper.service;
 
-import backend.academy.scrapper.repository.InMemoryRepository;
+import backend.academy.scrapper.repository.ChatOperationRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class ChatService {
-    private final InMemoryRepository inMemoryRepository;
-
-    public ChatService(InMemoryRepository inMemoryRepository) {
-        this.inMemoryRepository = inMemoryRepository;
-    }
+    private final ChatOperationRepository chatOperationRepository;
 
     public void registerChat(Long chatId) {
-        inMemoryRepository.registerChat(chatId);
+        chatOperationRepository.registerChat(chatId);
+        log.atInfo()
+                .setMessage("Successfully registered chat")
+                .addKeyValue("chatId", chatId)
+                .log();
     }
 
     public void deleteChat(Long chatId) {
-        inMemoryRepository.deleteChat(chatId);
+        chatOperationRepository.deleteChat(chatId);
+        log.atInfo()
+                .setMessage("Successfully deleted chat")
+                .addKeyValue("chatId", chatId)
+                .log();
     }
 }

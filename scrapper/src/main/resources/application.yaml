@@ -1,14 +1,24 @@
 app:
-  github-token: ${GITHUB_TOKEN} # env variable
-  github-base-url:
+  access-type: ORM
+  batch-size: 100
+  scheduler:
+    interval: 30000
+    thread-count: 4
+  github:
+    token: ${GITHUB_TOKEN} # env variable
+    base-url: https://api.github.com
   stackoverflow:
     key: ${SO_TOKEN_KEY}
     access-token: ${SO_ACCESS_TOKEN}
-    base-url:
+    base-url: https://api.stackexchange.com/2.3
 
 spring:
   application:
     name: Scrapper
+  datasource:
+    url: jdbc:postgresql://localhost:5433/scrapper
+    username: postgres
+    password: password
   liquibase:
     enabled: false
   jpa:
@@ -23,3 +33,10 @@ springdoc:
   swagger-ui:
     enabled: true
     path: /swagger-ui
+
+logging:
+  structured:
+    format:
+      file: ecs
+  file:
+    name: log.json

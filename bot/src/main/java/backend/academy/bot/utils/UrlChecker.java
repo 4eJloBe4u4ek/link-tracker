@@ -5,13 +5,18 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 public class UrlChecker {
+    private static final Set<String> ALLOWED_PROTOCOLS = new HashSet<>(Arrays.asList("http", "https"));
+
     public static boolean isValidUrl(String urlString) {
         HttpURLConnection connection = null;
         try {
             URL url = new URI(urlString).toURL();
-            if (!url.getProtocol().equals("http") && !url.getProtocol().equals("https")) {
+            if (!ALLOWED_PROTOCOLS.contains(url.getProtocol())) {
                 return false;
             }
             connection = (HttpURLConnection) url.openConnection();

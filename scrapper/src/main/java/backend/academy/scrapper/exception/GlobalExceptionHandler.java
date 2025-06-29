@@ -61,6 +61,32 @@ public class GlobalExceptionHandler {
                                 .toList()));
     }
 
+    @ExceptionHandler(TagAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorResponse> handleTagAlreadyExistsException(TagAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiErrorResponse(
+                        "Некорректные параметры запроса",
+                        String.valueOf(HttpStatus.BAD_REQUEST),
+                        ex.getClass().getSimpleName(),
+                        ex.getMessage(),
+                        Arrays.stream(ex.getStackTrace())
+                                .map(StackTraceElement::toString)
+                                .toList()));
+    }
+
+    @ExceptionHandler(TagNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleTagNotFoundException(TagNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiErrorResponse(
+                        "Некорректные параметры запроса",
+                        String.valueOf(HttpStatus.NOT_FOUND),
+                        ex.getClass().getSimpleName(),
+                        ex.getMessage(),
+                        Arrays.stream(ex.getStackTrace())
+                                .map(StackTraceElement::toString)
+                                .toList()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleServerException(Exception ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)

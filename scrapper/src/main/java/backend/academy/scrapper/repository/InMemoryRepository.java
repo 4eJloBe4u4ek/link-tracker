@@ -6,6 +6,7 @@ import backend.academy.scrapper.exception.LinkAlreadyExistsException;
 import backend.academy.scrapper.exception.LinkNotFoundException;
 import backend.academy.shared.dto.TrackedLink;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -52,8 +53,8 @@ public class InMemoryRepository {
             }
         }
 
-        TrackedLink trackedLink = new TrackedLink(
-                linkIdGenerator.getAndIncrement(), link, tags, filters, LocalDateTime.now(), LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+        TrackedLink trackedLink = new TrackedLink(linkIdGenerator.getAndIncrement(), link, tags, filters, now, now);
         trackedLinks.computeIfAbsent(chatId, k -> new ArrayList<>()).add(trackedLink);
         return trackedLink;
     }

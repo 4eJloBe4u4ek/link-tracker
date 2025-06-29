@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 public record StackoverflowQuestion(
         @JsonProperty("question_id") Long questionId,
-        @JsonProperty("owner") StackoverflowQuestionOwner owner,
+        @JsonProperty("owner") StackoverflowOwner owner,
         @JsonProperty("creation_date") @JsonDeserialize(using = UnixToLocalDateTimeDeserializer.class)
                 LocalDateTime creationDate,
         @JsonProperty("last_activity_date") @JsonDeserialize(using = UnixToLocalDateTimeDeserializer.class)
