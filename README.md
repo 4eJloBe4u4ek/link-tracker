@@ -25,6 +25,5 @@
    * **SO_ACCESS_TOKEN**=your_stackoverflow_access_token
    * **GITHUB_TOKEN**=your_github_personal_access_token
 3. Запуск docker compose: `docker-compose up --build`
-4. Запуск через IDE ScrapperApplication и BotApplication
 
 Для дополнительной справки: [HELP.md](./HELP.md)
