@@ -1,8 +1,10 @@
 app:
   github-token: ${GITHUB_TOKEN} # env variable
+  github-base-url:
   stackoverflow:
     key: ${SO_TOKEN_KEY}
     access-token: ${SO_ACCESS_TOKEN}
+    base-url:
 
 spring:
   application:
