@@ -1,5 +1,6 @@
 package backend.academy.scrapper.controller;
 
+import backend.academy.scrapper.ratelimiter.RateLimited;
 import backend.academy.scrapper.service.FilterService;
 import backend.academy.shared.dto.AddFilterRequest;
 import backend.academy.shared.dto.RemoveFilterRequest;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class FilterController {
     private final FilterService filterService;
 
+    @RateLimited
     @PostMapping("/filters/add")
     public ResponseEntity<Void> addFilterToLink(
             @RequestHeader("Tg-Chat-Id") Long chatId, @RequestBody AddFilterRequest addFilterRequest) {
@@ -31,6 +33,7 @@ public class FilterController {
         return ResponseEntity.ok().build();
     }
 
+    @RateLimited
     @DeleteMapping("/filters/remove")
     public ResponseEntity<Void> removeFilterFromLink(
             @RequestHeader("Tg-Chat-Id") Long chatId, @RequestBody RemoveFilterRequest removeFilterRequest) {

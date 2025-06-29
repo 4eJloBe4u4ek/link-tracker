@@ -1,5 +1,6 @@
 package backend.academy.scrapper.controller;
 
+import backend.academy.scrapper.ratelimiter.RateLimited;
 import backend.academy.scrapper.service.ChatService;
 import backend.academy.shared.dto.RegisterChatRequest;
 import backend.academy.shared.dto.UpdateNotificationModeRequest;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ChatController {
     private final ChatService chatService;
 
+    @RateLimited
     @PostMapping("/tg-chat/{id}")
     public ResponseEntity<Void> registerChat(
             @PathVariable("id") Long id, @RequestBody RegisterChatRequest registerChatRequest) {
@@ -27,6 +29,7 @@ public class ChatController {
         return ResponseEntity.ok().build();
     }
 
+    @RateLimited
     @DeleteMapping("/tg-chat/{id}")
     public ResponseEntity<Void> deleteChat(@PathVariable("id") Long id) {
         log.atInfo().setMessage("Deleting chat").addKeyValue("chatId", id).log();
@@ -34,9 +37,14 @@ public class ChatController {
         return ResponseEntity.ok().build();
     }
 
-    @PatchMapping("tg-chat/{id}/notification")
+    @RateLimited
+    @PatchMapping("/tg-chat/{id}/notification")
     public ResponseEntity<Void> updateNotificationMode(
             @PathVariable("id") Long id, @RequestBody UpdateNotificationModeRequest updateNotificationModeRequest) {
+        log.atInfo()
+                .setMessage("Updating notification mode")
+                .addKeyValue("chatId", id)
+                .log();
         chatService.updateNotificationMode(id, updateNotificationModeRequest);
         return ResponseEntity.ok().build();
     }

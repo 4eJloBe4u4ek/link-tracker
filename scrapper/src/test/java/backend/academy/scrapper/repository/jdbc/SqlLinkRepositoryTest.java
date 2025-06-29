@@ -1,29 +1,34 @@
 package backend.academy.scrapper.repository.jdbc;
 
+import static backend.academy.scrapper.TestData.TEST_CHAT_ID;
+import static backend.academy.scrapper.TestData.TEST_FILTER;
+import static backend.academy.scrapper.TestData.TEST_TAG;
+import static backend.academy.scrapper.TestData.TEST_URL;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import backend.academy.scrapper.TestcontainersConfiguration;
+import backend.academy.scrapper.BaseIntegrationTest;
 import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.scrapper.exception.LinkAlreadyExistsException;
 import backend.academy.scrapper.exception.LinkNotFoundException;
 import backend.academy.shared.dto.TrackedLink;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @SpringBootTest(properties = {"app.access-type=sql"})
-@Import(TestcontainersConfiguration.class)
-class SqlLinkRepositoryTest {
+class SqlLinkRepositoryTest extends BaseIntegrationTest {
+    private static final String INSERT_CHAT = "INSERT INTO chats (id, created_at) VALUES (?, ?)";
+    private static final String COUNT_LINKS_BY_URL = "SELECT COUNT(*) FROM links WHERE url = ?";
+    private static final String GET_UPDATED_AT_BY_URL = "SELECT updated_at FROM links WHERE url = ?";
+
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
@@ -31,113 +36,117 @@ class SqlLinkRepositoryTest {
     private ScrapperConfig scrapperConfig;
 
     private SqlLinkRepository sqlLinkRepository;
-    private Long chatId;
-    private String url;
 
     @BeforeEach
     void setUp() {
         sqlLinkRepository = new SqlLinkRepository(jdbcTemplate, scrapperConfig);
 
-        chatId = 123L;
-        url = "https://example.com";
-        jdbcTemplate.update("INSERT INTO chats (id, created_at) VALUES (?, ?)", chatId, LocalDateTime.now());
+        jdbcTemplate.update(INSERT_CHAT, TEST_CHAT_ID, LocalDateTime.now());
     }
 
     @Test
     @Transactional
     void shouldAddLink() {
-        TrackedLink trackedLink = sqlLinkRepository.addLink(chatId, url, List.of("tag"), List.of("filter"));
+        TrackedLink trackedLink = sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
-        Integer countLinksWithId =
-                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM links WHERE url = ?", Integer.class, url);
+        Integer countLinksWithId = jdbcTemplate.queryForObject(COUNT_LINKS_BY_URL, Integer.class, TEST_URL);
         assertThat(countLinksWithId).isEqualTo(1);
-        assertThat(trackedLink.url()).isEqualTo(url);
+        assertThat(trackedLink.url()).isEqualTo(TEST_URL);
     }
 
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkAlreadyExists() {
-        sqlLinkRepository.addLink(chatId, url, List.of(), List.of());
+        sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
         assertThrows(
-                LinkAlreadyExistsException.class, () -> sqlLinkRepository.addLink(chatId, url, List.of(), List.of()));
+                LinkAlreadyExistsException.class,
+                () -> sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of()));
     }
 
     @Test
     @Transactional
     void shouldRemoveLink() {
-        sqlLinkRepository.addLink(chatId, url, List.of(), List.of());
+        sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
-        sqlLinkRepository.removeLink(chatId, url);
+        sqlLinkRepository.removeLink(TEST_CHAT_ID, TEST_URL);
 
-        Integer countLinksWithId =
-                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM links WHERE url = ?", Integer.class, url);
+        Integer countLinksWithId = jdbcTemplate.queryForObject(COUNT_LINKS_BY_URL, Integer.class, TEST_URL);
         assertThat(countLinksWithId).isEqualTo(0);
     }
 
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkDoesNotExist() {
-        assertThrows(LinkNotFoundException.class, () -> sqlLinkRepository.removeLink(chatId, url));
+        assertThrows(LinkNotFoundException.class, () -> sqlLinkRepository.removeLink(TEST_CHAT_ID, TEST_URL));
     }
 
     @Test
     @Transactional
     void shouldUpdateLastCheckedTime() {
-        TrackedLink trackedLink = sqlLinkRepository.addLink(chatId, url, List.of(), List.of());
+        TrackedLink trackedLink = sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
         LocalDateTime lastCheckedTime = LocalDateTime.now();
 
         sqlLinkRepository.updateLastCheckedTime(trackedLink, lastCheckedTime);
-        LocalDateTime updateTime =
-                jdbcTemplate.queryForObject("SELECT updated_at FROM links WHERE url = ?", LocalDateTime.class, url);
+        LocalDateTime updateTime = jdbcTemplate.queryForObject(GET_UPDATED_AT_BY_URL, LocalDateTime.class, TEST_URL);
 
         assertThat(updateTime).isNotNull();
-        assertThat(updateTime.truncatedTo(ChronoUnit.MILLIS)).isEqualTo(lastCheckedTime.truncatedTo(ChronoUnit.MILLIS));
+        assertThat(updateTime.withNano(0)).isEqualTo(lastCheckedTime.withNano(0));
     }
 
     @Test
     @Transactional
     void shouldReturnLinksByChat() {
-        sqlLinkRepository.addLink(chatId, url, List.of(), List.of());
+        sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
-        List<TrackedLink> links = sqlLinkRepository.getLinksByChat(chatId, 0);
+        List<TrackedLink> links = sqlLinkRepository.getLinksByChat(TEST_CHAT_ID, 0);
 
         assertThat(links.size()).isEqualTo(1);
-        assertThat(links.getFirst().url()).isEqualTo(url);
+        assertThat(links.getFirst().url()).isEqualTo(TEST_URL);
     }
 
     @Test
     @Transactional
     void shouldReturnAllLinks() {
-        sqlLinkRepository.addLink(chatId, url, List.of(), List.of());
+        sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
         List<TrackedLink> links = sqlLinkRepository.getAllLinks(0);
 
         assertThat(links.size()).isEqualTo(1);
-        assertThat(links.getFirst().url()).isEqualTo(url);
+        assertThat(links.getFirst().url()).isEqualTo(TEST_URL);
     }
 
     @Test
     @Transactional
     void shouldReturnLinksByChatAndTag() {
-        String tag = "tag";
-        sqlLinkRepository.addLink(chatId, url, List.of(tag), List.of());
+        sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(TEST_TAG), List.of());
 
-        List<TrackedLink> links = sqlLinkRepository.getLinksByChatAndTag(chatId, tag, 0);
+        List<TrackedLink> links = sqlLinkRepository.getLinksByChatAndTag(TEST_CHAT_ID, TEST_TAG, 0);
 
         assertThat(links.size()).isEqualTo(1);
-        assertThat(links.getFirst().url()).isEqualTo(url);
-        assertThat(links.getFirst().tags()).isEqualTo(List.of(tag));
+        assertThat(links.getFirst().url()).isEqualTo(TEST_URL);
+        assertThat(links.getFirst().tags()).isEqualTo(List.of(TEST_TAG));
     }
 
     @Test
     @Transactional
     void shouldReturnChatsForLink() {
-        TrackedLink trackedLink = sqlLinkRepository.addLink(chatId, url, List.of(), List.of());
+        TrackedLink trackedLink = sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of());
 
         List<Long> chats = sqlLinkRepository.getChatsForLink(trackedLink, 0);
 
         assertThat(chats.size()).isEqualTo(1);
-        assertThat(chats.getFirst()).isEqualTo(chatId);
+        assertThat(chats.getFirst()).isEqualTo(TEST_CHAT_ID);
+    }
+
+    @Test
+    @Transactional
+    void shouldReturnFiltersForChatAndLink() {
+        TrackedLink trackedLink = sqlLinkRepository.addLink(TEST_CHAT_ID, TEST_URL, List.of(), List.of(TEST_FILTER));
+
+        List<String> filters = sqlLinkRepository.getFiltersForChatAndLink(TEST_CHAT_ID, trackedLink);
+
+        assertThat(filters.size()).isEqualTo(1);
+        assertThat(filters.contains(TEST_FILTER)).isTrue();
     }
 }

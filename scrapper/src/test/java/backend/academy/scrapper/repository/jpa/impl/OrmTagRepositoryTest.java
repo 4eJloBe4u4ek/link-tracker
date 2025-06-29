@@ -1,9 +1,12 @@
 package backend.academy.scrapper.repository.jpa.impl;
 
+import static backend.academy.scrapper.TestData.TEST_CHAT_ID;
+import static backend.academy.scrapper.TestData.TEST_TAG;
+import static backend.academy.scrapper.TestData.TEST_URL;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import backend.academy.scrapper.TestcontainersConfiguration;
+import backend.academy.scrapper.BaseIntegrationTest;
 import backend.academy.scrapper.domain.entity.ChatEntity;
 import backend.academy.scrapper.domain.entity.ChatLinkTagEntity;
 import backend.academy.scrapper.domain.entity.LinkEntity;
@@ -23,14 +26,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @SpringBootTest(properties = {"app.access-type=orm"})
-@Import(TestcontainersConfiguration.class)
-class OrmTagRepositoryTest {
+class OrmTagRepositoryTest extends BaseIntegrationTest {
     @Autowired
     private ChatJpaRepository chatJpaRepository;
 
@@ -56,11 +57,11 @@ class OrmTagRepositoryTest {
                 chatJpaRepository, linkJpaRepository, tagJpaRepository, filterJpaRepository, chatLinkTagJpaRepository);
 
         chat = new ChatEntity();
-        chat.id(123L);
+        chat.id(TEST_CHAT_ID);
         chat.createdAt(LocalDateTime.now());
 
         link = new LinkEntity();
-        link.url("https://example.com");
+        link.url(TEST_URL);
         link.createdAt(LocalDateTime.now());
         link.updatedAt(LocalDateTime.now());
         linkJpaRepository.save(link);
@@ -72,11 +73,9 @@ class OrmTagRepositoryTest {
     @Test
     @Transactional
     void shouldAddTagToLink() {
-        String tagName = "tag";
+        ormTagRepository.addTagToLink(chat.id(), link.url(), TEST_TAG);
 
-        ormTagRepository.addTagToLink(chat.id(), link.url(), tagName);
-
-        Optional<TagEntity> tag = tagJpaRepository.findByName(tagName);
+        Optional<TagEntity> tag = tagJpaRepository.findByName(TEST_TAG);
         assertThat(tag).isPresent();
         assertThat(chatLinkTagJpaRepository.findByChatAndLinkAndTag(chat, link, tag.orElseThrow()))
                 .isPresent();
@@ -86,32 +85,31 @@ class OrmTagRepositoryTest {
     @Transactional
     void shouldThrowExceptionIfLinkNotTrackedByChat() {
         ChatEntity otherChat = new ChatEntity();
-        otherChat.id(999L);
+        Long otherChatId = 9999L;
+        otherChat.id(otherChatId);
         chatJpaRepository.save(otherChat);
 
         assertThrows(
-                LinkNotFoundException.class, () -> ormTagRepository.addTagToLink(otherChat.id(), link.url(), "tag"));
+                LinkNotFoundException.class, () -> ormTagRepository.addTagToLink(otherChat.id(), link.url(), TEST_TAG));
     }
 
     @Test
     @Transactional
     void shouldThrowExceptionIfTagAlreadyExists() {
-        String tagName = "tag";
-        ormTagRepository.addTagToLink(chat.id(), link.url(), tagName);
+        ormTagRepository.addTagToLink(chat.id(), link.url(), TEST_TAG);
 
         assertThrows(
-                TagAlreadyExistsException.class, () -> ormTagRepository.addTagToLink(chat.id(), link.url(), tagName));
+                TagAlreadyExistsException.class, () -> ormTagRepository.addTagToLink(chat.id(), link.url(), TEST_TAG));
     }
 
     @Test
     @Transactional
     void shouldRemoveTagFromLink() {
-        String tagName = "tag";
-        ormTagRepository.addTagToLink(chat.id(), link.url(), tagName);
+        ormTagRepository.addTagToLink(chat.id(), link.url(), TEST_TAG);
 
-        ormTagRepository.removeTagFromLink(chat.id(), link.url(), tagName);
+        ormTagRepository.removeTagFromLink(chat.id(), link.url(), TEST_TAG);
 
-        Optional<TagEntity> tag = tagJpaRepository.findByName(tagName);
+        Optional<TagEntity> tag = tagJpaRepository.findByName(TEST_TAG);
         List<ChatLinkTagEntity> chatLinkTagList = chatLinkTagJpaRepository.findByChatAndLink(chat, link);
         assertThat(tag).isEmpty();
         assertThat(chatLinkTagList.isEmpty()).isTrue();
@@ -120,9 +118,8 @@ class OrmTagRepositoryTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfTagDoesNotExist() {
-        String tagName = "tag";
         String otherTagName = "otherTag";
-        ormTagRepository.addTagToLink(chat.id(), link.url(), tagName);
+        ormTagRepository.addTagToLink(chat.id(), link.url(), TEST_TAG);
 
         assertThrows(
                 TagNotFoundException.class,
@@ -132,15 +129,15 @@ class OrmTagRepositoryTest {
     @Test
     @Transactional
     void shouldThrowExceptionIfLinkHasNoTag() {
-        String tagName = "tag";
         String otherTagName = "otherTag";
+        Long otherChatId = 9999L;
         ChatEntity otherChat = new ChatEntity();
-        otherChat.id(999L);
+        otherChat.id(otherChatId);
         otherChat.createdAt(LocalDateTime.now());
         otherChat.links().add(link);
         chatJpaRepository.save(otherChat);
 
-        ormTagRepository.addTagToLink(chat.id(), link.url(), tagName);
+        ormTagRepository.addTagToLink(chat.id(), link.url(), TEST_TAG);
         ormTagRepository.addTagToLink(otherChat.id(), link.url(), otherTagName);
 
         assertThrows(

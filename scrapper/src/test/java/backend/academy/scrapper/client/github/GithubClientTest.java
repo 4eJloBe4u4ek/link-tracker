@@ -1,5 +1,21 @@
 package backend.academy.scrapper.client.github;
 
+import static backend.academy.scrapper.TestData.GITHUB_COMMENTS_PATH;
+import static backend.academy.scrapper.TestData.GITHUB_COMMENTS_RESPONSE;
+import static backend.academy.scrapper.TestData.GITHUB_COMMENTS_RESPONSE_BODY;
+import static backend.academy.scrapper.TestData.GITHUB_COMMITS_PATH;
+import static backend.academy.scrapper.TestData.GITHUB_COMMITS_RESPONSE;
+import static backend.academy.scrapper.TestData.GITHUB_COMMITS_RESPONSE_MESSAGE;
+import static backend.academy.scrapper.TestData.GITHUB_EMPTY_RESPONSE;
+import static backend.academy.scrapper.TestData.GITHUB_ISSUES_PATH;
+import static backend.academy.scrapper.TestData.GITHUB_ISSUES_RESPONSE;
+import static backend.academy.scrapper.TestData.GITHUB_ISSUES_RESPONSE_TITLE;
+import static backend.academy.scrapper.TestData.GITHUB_OWNER;
+import static backend.academy.scrapper.TestData.GITHUB_PULLS_PATH;
+import static backend.academy.scrapper.TestData.GITHUB_PULLS_RESPONSE;
+import static backend.academy.scrapper.TestData.GITHUB_PULLS_RESPONSE_TITLE;
+import static backend.academy.scrapper.TestData.GITHUB_REPO;
+import static backend.academy.scrapper.TestData.TEST_TIME;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
@@ -38,132 +54,64 @@ public class GithubClientTest {
 
     @Test
     void shouldReturnCommits() {
-        wireMock.stubFor(
-                get(urlPathEqualTo("/repos/owner/repo/commits"))
-                        .willReturn(
-                                aResponse()
-                                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                                        .withBody(
-                                                """
-                        [
-                            {
-                                "commit": {
-                                    "url": "https://api.github.com/repos/owner/repo/commits",
-                                    "message": "Initial commit",
-                                    "author": {
-                                        "name": "Noname",
-                                        "date": "2025-01-01T00:00:00Z"
-                                    }
-                                }
-                            }
-                        ]
-                    """)));
+        wireMock.stubFor(get(urlPathEqualTo(GITHUB_COMMITS_PATH))
+                .willReturn(aResponse()
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody(GITHUB_COMMITS_RESPONSE)));
 
-        StepVerifier.create(githubClient.getCommits("owner", "repo", "2025-01-01T00:00:00Z"))
+        StepVerifier.create(githubClient.getCommits(GITHUB_OWNER, GITHUB_REPO, TEST_TIME))
                 .expectNextMatches(commits -> commits.size() == 1
-                        && commits.getFirst().commit().message().equals("Initial commit"))
+                        && commits.getFirst().commit().message().equals(GITHUB_COMMITS_RESPONSE_MESSAGE))
                 .verifyComplete();
     }
 
     @Test
     void shouldReturnIssues() {
-        wireMock.stubFor(
-                get(urlPathEqualTo("/repos/owner/repo/issues"))
-                        .willReturn(
-                                aResponse()
-                                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                                        .withBody(
-                                                """
-                        [
-                            {
-                                "id": 1,
-                                "title": "This is a issue",
-                                "body": "Issue body",
-                                "user": {
-                                    "id": 1,
-                                    "login": "TestUserLogin"
-                                },
-                                "state": "open",
-                                "created_at": "2025-01-01T00:00:00Z",
-                                "updated_at": "2025-01-01T00:00:00Z"
-                            }
-                        ]
-                    """)));
+        wireMock.stubFor(get(urlPathEqualTo(GITHUB_ISSUES_PATH))
+                .willReturn(aResponse()
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody(GITHUB_ISSUES_RESPONSE)));
 
-        StepVerifier.create(githubClient.getIssues("owner", "repo", "2025-01-01T00:00:00Z"))
+        StepVerifier.create(githubClient.getIssues(GITHUB_OWNER, GITHUB_REPO, TEST_TIME))
                 .expectNextMatches(issues ->
-                        issues.size() == 1 && issues.getFirst().title().equals("This is a issue"))
+                        issues.size() == 1 && issues.getFirst().title().equals(GITHUB_ISSUES_RESPONSE_TITLE))
                 .verifyComplete();
     }
 
     @Test
     void shouldReturnComments() {
-        wireMock.stubFor(
-                get(urlPathEqualTo("/repos/owner/repo/issues/comments"))
-                        .willReturn(
-                                aResponse()
-                                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                                        .withBody(
-                                                """
-                        [
-                            {
-                                "id": 1,
-                                "body": "This is a comment",
-                                "user": {
-                                    "id": 1,
-                                    "login": "TestUserLogin"
-                                },
-                                "created_at": "2025-01-01T00:00:00Z",
-                                "updated_at": "2025-01-01T00:00:00Z"
-                            }
-                        ]
-                    """)));
+        wireMock.stubFor(get(urlPathEqualTo(GITHUB_COMMENTS_PATH))
+                .willReturn(aResponse()
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody(GITHUB_COMMENTS_RESPONSE)));
 
-        StepVerifier.create(githubClient.getComments("owner", "repo", "2025-01-01T00:00:00Z"))
+        StepVerifier.create(githubClient.getComments(GITHUB_OWNER, GITHUB_REPO, TEST_TIME))
                 .expectNextMatches(comments ->
-                        comments.size() == 1 && comments.getFirst().body().equals("This is a comment"))
+                        comments.size() == 1 && comments.getFirst().body().equals(GITHUB_COMMENTS_RESPONSE_BODY))
                 .verifyComplete();
     }
 
     @Test
     void shouldReturnPullRequests() {
-        wireMock.stubFor(
-                get(urlPathEqualTo("/repos/owner/repo/pulls"))
-                        .willReturn(
-                                aResponse()
-                                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                                        .withBody(
-                                                """
-                        [
-                            {
-                                "id": 1,
-                                "state": "open",
-                                "title": "PR title",
-                                "body": "This fixes an issue",
-                                "user": {
-                                    "id": 1,
-                                    "login": "TestUserLogin"
-                                },
-                                "created_at": "2025-01-01T00:00:01Z",
-                                "updated_at": "2025-01-01T00:00:00Z"
-                            }
-                        ]
-                        """)));
+        wireMock.stubFor(get(urlPathEqualTo(GITHUB_PULLS_PATH))
+                .willReturn(aResponse()
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody(GITHUB_PULLS_RESPONSE)));
 
-        StepVerifier.create(githubClient.getPullRequests("owner", "repo", LocalDateTime.parse("2025-01-01T00:00:00")))
+        StepVerifier.create(githubClient.getPullRequests(GITHUB_OWNER, GITHUB_REPO, LocalDateTime.parse(TEST_TIME)))
                 .expectNextMatches(
-                        prs -> prs.size() == 1 && prs.getFirst().title().equals("PR title"))
+                        prs -> prs.size() == 1 && prs.getFirst().title().equals(GITHUB_PULLS_RESPONSE_TITLE))
                 .verifyComplete();
     }
 
     @Test
     void shouldHandleEmptyResponse() {
-        wireMock.stubFor(get(urlPathEqualTo("/repos/owner/repo/commits"))
+        wireMock.stubFor(get(urlPathEqualTo(GITHUB_COMMITS_PATH))
                 .willReturn(aResponse()
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                        .withBody("[]")));
+                        .withBody(GITHUB_EMPTY_RESPONSE)));
 
-        StepVerifier.create(githubClient.getCommits("owner", "repo", "2025-01-01T00:00:00Z"))
+        StepVerifier.create(githubClient.getCommits(GITHUB_OWNER, GITHUB_REPO, TEST_TIME))
                 .expectNextMatches(List::isEmpty)
                 .verifyComplete();
     }

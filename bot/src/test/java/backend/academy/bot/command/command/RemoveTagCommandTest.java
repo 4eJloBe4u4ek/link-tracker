@@ -1,8 +1,24 @@
 package backend.academy.bot.command.command;
 
+import static backend.academy.bot.TestData.CMD_REMOVE_TAG;
+import static backend.academy.bot.TestData.EXTRA_ARGUMENT;
+import static backend.academy.bot.TestData.INVALID_TAG_COUNT;
+import static backend.academy.bot.TestData.REMOVE_TAG_ERROR_TAG_COUNT;
+import static backend.academy.bot.TestData.REMOVE_TAG_ERROR_TAG_REMOVE;
+import static backend.academy.bot.TestData.REMOVE_TAG_PROMPT_TAG_NAME;
+import static backend.academy.bot.TestData.REMOVE_TAG_PROMPT_TAG_URL;
+import static backend.academy.bot.TestData.REMOVE_TAG_SUCCESS_TAG_REMOVED;
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_CHAT_ID;
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_TEXT;
+import static backend.academy.bot.TestData.TEST_CHAT_ID;
+import static backend.academy.bot.TestData.TEST_URL;
+import static backend.academy.bot.TestData.USAGE_REMOVE_TAG;
+import static backend.academy.bot.TestData.VALID_TAG_COUNT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import backend.academy.bot.dialog.DialogService;
@@ -14,9 +30,11 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.request.SendMessage;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.mockito.ArgumentCaptor;
 import reactor.core.publisher.Mono;
 
 class RemoveTagCommandTest {
@@ -26,7 +44,6 @@ class RemoveTagCommandTest {
     private RemoveTagCommand removeTagCommand;
     private Update update;
     private Message message;
-    private Chat chat;
 
     @BeforeEach
     void setUp() {
@@ -37,105 +54,113 @@ class RemoveTagCommandTest {
 
         update = mock(Update.class);
         message = mock(Message.class);
-        chat = mock(Chat.class);
+        Chat chat = mock(Chat.class);
 
         when(update.message()).thenReturn(message);
         when(message.chat()).thenReturn(chat);
-        when(chat.id()).thenReturn(123L);
+        when(chat.id()).thenReturn(TEST_CHAT_ID);
     }
 
     @Test
     void shouldReturnUsageErrorForExtraArguments() {
-        when(message.text()).thenReturn("/removetag extra");
+        when(message.text()).thenReturn(CMD_REMOVE_TAG + EXTRA_ARGUMENT);
         removeTagCommand.execute(update, bot);
 
-        Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Использование: /removetag")));
+        verify(bot)
+                .execute(argThat(
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(USAGE_REMOVE_TAG)));
     }
 
     @Test
     void shouldStartRemoveTagDialog() {
-        when(message.text()).thenReturn("/removetag");
-        assertThat(dialogService.getDialog(123L)).isNull();
+        when(message.text()).thenReturn(CMD_REMOVE_TAG);
+        assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
 
         removeTagCommand.execute(update, bot);
 
-        TrackingContext context = dialogService.getDialog(123L);
+        TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context).isNotNull();
         assertThat(context.dialogType()).isEqualTo(DialogType.REMOVE_TAG);
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_URL);
 
-        Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Укажите ссылку для удаления тега.")));
+        verify(bot)
+                .execute(argThat(
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_TAG_PROMPT_TAG_URL)));
     }
 
     @Test
     void shouldProcessValidUrlAndPromptTag() {
-        when(message.text()).thenReturn("/removetag");
+        when(message.text()).thenReturn(CMD_REMOVE_TAG);
         removeTagCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         removeTagCommand.execute(update, bot);
 
-        TrackingContext ctx = dialogService.getDialog(123L);
-        assertThat(ctx.url()).isEqualTo("http://example.com");
+        TrackingContext ctx = dialogService.getDialog(TEST_CHAT_ID);
+        assertThat(ctx.url()).isEqualTo(TEST_URL);
         assertThat(ctx.trackState()).isEqualTo(TrackState.AWAITING_TAG);
 
-        Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Укажите тег для удаления.")));
+        verify(bot)
+                .execute(argThat(
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_TAG_PROMPT_TAG_NAME)));
     }
 
     @Test
     void shouldProcessInvalidTagCount() {
-        when(message.text()).thenReturn("/removetag");
+        when(message.text()).thenReturn(CMD_REMOVE_TAG);
         removeTagCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         removeTagCommand.execute(update, bot);
-        when(message.text()).thenReturn("tag1 tag2");
+        when(message.text()).thenReturn(INVALID_TAG_COUNT);
         removeTagCommand.execute(update, bot);
 
-        Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Введите один тег для удаления у ссылки.")));
+        verify(bot)
+                .execute(argThat(
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_TAG_ERROR_TAG_COUNT)));
 
-        TrackingContext context = dialogService.getDialog(123L);
+        TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context).isNotNull();
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_TAG);
     }
 
     @Test
     void shouldProcessTagInputAndCallRemoveTagSuccessfully() {
-        when(message.text()).thenReturn("/removetag");
+        when(message.text()).thenReturn(CMD_REMOVE_TAG);
         removeTagCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         removeTagCommand.execute(update, bot);
-        when(message.text()).thenReturn("tag1");
-        when(commandService.removeTagFromTrackedLink(123L, "http://example.com", "tag1"))
+        when(message.text()).thenReturn(VALID_TAG_COUNT);
+        when(commandService.removeTagFromTrackedLink(TEST_CHAT_ID, TEST_URL, VALID_TAG_COUNT))
                 .thenReturn(Mono.just(true));
         removeTagCommand.execute(update, bot);
 
-        Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Тег удален успешно.")));
-        assertThat(dialogService.getDialog(123L)).isNull();
+        verify(bot)
+                .execute(argThat(msg -> msg.getParameters()
+                                .get(TELEGRAM_PARAM_CHAT_ID)
+                                .equals(TEST_CHAT_ID)
+                        && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(REMOVE_TAG_SUCCESS_TAG_REMOVED)));
+        assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
     }
 
     @Test
     void shouldProcessTagInputAndCallRemoveTagFailure() {
-        when(message.text()).thenReturn("/removetag");
+        when(message.text()).thenReturn(CMD_REMOVE_TAG);
         removeTagCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         removeTagCommand.execute(update, bot);
-        when(message.text()).thenReturn("tag1");
-        when(commandService.removeTagFromTrackedLink(123L, "http://example.com", "tag1"))
+        when(message.text()).thenReturn(VALID_TAG_COUNT);
+        when(commandService.removeTagFromTrackedLink(TEST_CHAT_ID, TEST_URL, VALID_TAG_COUNT))
                 .thenReturn(Mono.just(false));
         removeTagCommand.execute(update, bot);
 
-        Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Ошибка! Тег не удален.")));
-        assertThat(dialogService.getDialog(123L)).isNull();
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(bot, times(3)).execute(captor.capture());
+        List<SendMessage> calls = captor.getAllValues();
+        SendMessage third = calls.get(2);
+        assertThat(third.getParameters().get(TELEGRAM_PARAM_TEXT)).isEqualTo(REMOVE_TAG_ERROR_TAG_REMOVE);
+        assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
     }
 }

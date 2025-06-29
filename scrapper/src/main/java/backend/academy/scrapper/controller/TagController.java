@@ -1,5 +1,6 @@
 package backend.academy.scrapper.controller;
 
+import backend.academy.scrapper.ratelimiter.RateLimited;
 import backend.academy.scrapper.service.TagService;
 import backend.academy.shared.dto.AddTagRequest;
 import backend.academy.shared.dto.RemoveTagRequest;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TagController {
     private final TagService tagService;
 
+    @RateLimited
     @PostMapping("/tags/add")
     public ResponseEntity<Void> addTagToLink(
             @RequestHeader("Tg-Chat-Id") Long chatId, @RequestBody AddTagRequest addTagRequest) {
@@ -31,6 +33,7 @@ public class TagController {
         return ResponseEntity.ok().build();
     }
 
+    @RateLimited
     @DeleteMapping("/tags/remove")
     public ResponseEntity<Void> removeTagFromLink(
             @RequestHeader("Tg-Chat-Id") Long chatId, @RequestBody RemoveTagRequest removeTagRequest) {

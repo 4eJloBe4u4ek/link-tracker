@@ -1,5 +1,6 @@
 package backend.academy.bot.controller;
 
+import backend.academy.bot.ratelimiter.RateLimited;
 import backend.academy.bot.service.UpdateService;
 import backend.academy.shared.dto.LinkUpdate;
 import lombok.RequiredArgsConstructor;
@@ -15,10 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class UpdateController {
     private final UpdateService updateService;
 
+    @RateLimited
     @PostMapping("/updates")
     public ResponseEntity<Void> updateLink(@RequestBody LinkUpdate update) {
         log.atInfo()
-                .setMessage("Getting link update")
+                .setMessage("Getting link update by http")
                 .addKeyValue("url", update.url())
                 .log();
         updateService.processUpdate(update);

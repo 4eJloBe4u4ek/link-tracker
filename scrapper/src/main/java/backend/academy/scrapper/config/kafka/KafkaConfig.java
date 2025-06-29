@@ -1,5 +1,6 @@
-package backend.academy.scrapper.config;
+package backend.academy.scrapper.config.kafka;
 
+import backend.academy.scrapper.config.ScrapperConfig;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.admin.AdminClientConfig;

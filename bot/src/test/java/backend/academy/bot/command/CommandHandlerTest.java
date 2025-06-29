@@ -1,5 +1,10 @@
 package backend.academy.bot.command;
 
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_CHAT_ID;
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_TEXT;
+import static backend.academy.bot.TestData.TEST_CHAT_ID;
+import static backend.academy.bot.TestData.UNKNOWN_COMMAND_ERROR_MESSAGE;
+import static backend.academy.bot.TestData.UNKNOWN_COMMAND_INPUT;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -24,18 +29,14 @@ class CommandHandlerTest {
         Chat chat = mock(Chat.class);
         when(update.message()).thenReturn(message);
         when(message.chat()).thenReturn(chat);
-        when(chat.id()).thenReturn(123L);
-        when(message.text()).thenReturn("/unknown");
+        when(chat.id()).thenReturn(TEST_CHAT_ID);
+        when(message.text()).thenReturn(UNKNOWN_COMMAND_INPUT);
 
         commandHandler.handleCommand(update, bot);
 
         Mockito.verify(bot)
-                .execute(
-                        Mockito.argThat(
-                                msg -> msg.getParameters().get("chat_id").equals(123L)
-                                        && msg.getParameters()
-                                                .get("text")
-                                                .equals(
-                                                        "Неизвестная команда. Используйте /help для просмотра списка доступных команд.")));
+                .execute(Mockito.argThat(
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(UNKNOWN_COMMAND_ERROR_MESSAGE)));
     }
 }

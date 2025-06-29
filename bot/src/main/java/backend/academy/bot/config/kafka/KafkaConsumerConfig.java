@@ -1,5 +1,6 @@
-package backend.academy.bot.config;
+package backend.academy.bot.config.kafka;
 
+import backend.academy.bot.config.BotConfig;
 import backend.academy.shared.dto.LinkUpdate;
 import java.util.HashMap;
 import java.util.Map;

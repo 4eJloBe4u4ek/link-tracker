@@ -1,5 +1,19 @@
 package backend.academy.bot.command.command;
 
+import static backend.academy.bot.TestData.ADD_TAG_ERROR_TAG_ADD;
+import static backend.academy.bot.TestData.ADD_TAG_ERROR_TAG_COUNT;
+import static backend.academy.bot.TestData.ADD_TAG_PROMPT_TAG_NAME;
+import static backend.academy.bot.TestData.ADD_TAG_PROMPT_TAG_URL;
+import static backend.academy.bot.TestData.ADD_TAG_SUCCESS_TAG_ADDED;
+import static backend.academy.bot.TestData.CMD_ADD_TAG;
+import static backend.academy.bot.TestData.EXTRA_ARGUMENT;
+import static backend.academy.bot.TestData.INVALID_TAG_COUNT;
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_CHAT_ID;
+import static backend.academy.bot.TestData.TELEGRAM_PARAM_TEXT;
+import static backend.academy.bot.TestData.TEST_CHAT_ID;
+import static backend.academy.bot.TestData.TEST_URL;
+import static backend.academy.bot.TestData.USAGE_ADD_TAG;
+import static backend.academy.bot.TestData.VALID_TAG_COUNT;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
@@ -26,7 +40,6 @@ class AddTagCommandTest {
     private AddTagCommand addTagCommand;
     private Update update;
     private Message message;
-    private Chat chat;
 
     @BeforeEach
     void setUp() {
@@ -37,116 +50,116 @@ class AddTagCommandTest {
 
         update = mock(Update.class);
         message = mock(Message.class);
-        chat = mock(Chat.class);
+        Chat chat = mock(Chat.class);
 
         when(update.message()).thenReturn(message);
         when(message.chat()).thenReturn(chat);
-        when(chat.id()).thenReturn(123L);
+        when(chat.id()).thenReturn(TEST_CHAT_ID);
     }
 
     @Test
     void shouldReturnUsageErrorForExtraArguments() {
-        when(message.text()).thenReturn("/addtag extra");
+        when(message.text()).thenReturn(CMD_ADD_TAG + EXTRA_ARGUMENT);
         addTagCommand.execute(update, bot);
 
         Mockito.verify(bot)
-                .execute(argThat(msg -> msg.getParameters().get("chat_id").equals(123L)
-                        && msg.getParameters().get("text").equals("Использование: /addtag")));
+                .execute(argThat(
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(USAGE_ADD_TAG)));
     }
 
     @Test
     void shouldStartAddTagDialog() {
-        when(message.text()).thenReturn("/addtag");
-        assertThat(dialogService.getDialog(123L)).isNull();
+        when(message.text()).thenReturn(CMD_ADD_TAG);
+        assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
 
         addTagCommand.execute(update, bot);
 
-        TrackingContext context = dialogService.getDialog(123L);
+        TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context).isNotNull();
         assertThat(context.dialogType()).isEqualTo(DialogType.ADD_TAG);
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_URL);
 
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
-                        msg -> msg.getParameters().get("chat_id").equals(123L)
-                                && msg.getParameters().get("text").equals("Укажите ссылку для добавления тега.")));
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(ADD_TAG_PROMPT_TAG_URL)));
     }
 
     @Test
     void shouldProcessValidUrlSuccessfully() {
-        when(message.text()).thenReturn("/addtag");
+        when(message.text()).thenReturn(CMD_ADD_TAG);
         addTagCommand.execute(update, bot);
 
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         addTagCommand.execute(update, bot);
 
-        TrackingContext context = dialogService.getDialog(123L);
-        assertThat(context.url()).isEqualTo("http://example.com");
+        TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
+        assertThat(context.url()).isEqualTo(TEST_URL);
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_TAG);
 
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
-                        msg -> msg.getParameters().get("chat_id").equals(123L)
-                                && msg.getParameters().get("text").equals("Укажите тег для добавления к ссылке.")));
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(ADD_TAG_PROMPT_TAG_NAME)));
     }
 
     @Test
     void shouldProcessInvalidTagCount() {
-        when(message.text()).thenReturn("/addtag");
+        when(message.text()).thenReturn(CMD_ADD_TAG);
         addTagCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         addTagCommand.execute(update, bot);
 
-        when(message.text()).thenReturn("tag1 tag2");
+        when(message.text()).thenReturn(INVALID_TAG_COUNT);
         addTagCommand.execute(update, bot);
 
         Mockito.verify(bot)
-                .execute(Mockito.argThat(msg -> msg.getParameters()
-                                .get("chat_id")
-                                .equals(123L)
-                        && msg.getParameters().get("text").equals("Введите один тег для добавления к ссылке.")));
-        TrackingContext context = dialogService.getDialog(123L);
+                .execute(Mockito.argThat(
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(ADD_TAG_ERROR_TAG_COUNT)));
+        TrackingContext context = dialogService.getDialog(TEST_CHAT_ID);
         assertThat(context).isNotNull();
         assertThat(context.trackState()).isEqualTo(TrackState.AWAITING_TAG);
     }
 
     @Test
     void shouldProcessTagInputAndCallAddTagSuccessfully() {
-        when(message.text()).thenReturn("/addtag");
+        when(message.text()).thenReturn(CMD_ADD_TAG);
         addTagCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         addTagCommand.execute(update, bot);
 
-        when(message.text()).thenReturn("tag1");
-        when(commandService.addTagToTrackedLink(123L, "http://example.com", "tag1"))
+        when(message.text()).thenReturn(VALID_TAG_COUNT);
+        when(commandService.addTagToTrackedLink(TEST_CHAT_ID, TEST_URL, VALID_TAG_COUNT))
                 .thenReturn(Mono.just(true));
 
         addTagCommand.execute(update, bot);
 
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
-                        msg -> msg.getParameters().get("chat_id").equals(123L)
-                                && msg.getParameters().get("text").equals("Тег добавлен успешно.")));
-        assertThat(dialogService.getDialog(123L)).isNull();
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(ADD_TAG_SUCCESS_TAG_ADDED)));
+        assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
     }
 
     @Test
     void shouldProcessTagInputAndCallAddTagFailure() {
-        when(message.text()).thenReturn("/addtag");
+        when(message.text()).thenReturn(CMD_ADD_TAG);
         addTagCommand.execute(update, bot);
-        when(message.text()).thenReturn("http://example.com");
+        when(message.text()).thenReturn(TEST_URL);
         addTagCommand.execute(update, bot);
 
-        when(message.text()).thenReturn("tag1");
-        when(commandService.addTagToTrackedLink(123L, "http://example.com", "tag1"))
+        when(message.text()).thenReturn(VALID_TAG_COUNT);
+        when(commandService.addTagToTrackedLink(TEST_CHAT_ID, TEST_URL, VALID_TAG_COUNT))
                 .thenReturn(Mono.just(false));
 
         addTagCommand.execute(update, bot);
 
         Mockito.verify(bot)
                 .execute(Mockito.argThat(
-                        msg -> msg.getParameters().get("chat_id").equals(123L)
-                                && msg.getParameters().get("text").equals("Ошибка! Тег не добавлен.")));
-        assertThat(dialogService.getDialog(123L)).isNull();
+                        msg -> msg.getParameters().get(TELEGRAM_PARAM_CHAT_ID).equals(TEST_CHAT_ID)
+                                && msg.getParameters().get(TELEGRAM_PARAM_TEXT).equals(ADD_TAG_ERROR_TAG_ADD)));
+        assertThat(dialogService.getDialog(TEST_CHAT_ID)).isNull();
     }
 }
