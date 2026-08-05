@@ -3,12 +3,16 @@ package backend.academy.scrapper.scheduler.service;
 import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.scrapper.repository.LinkOperationRepository;
 import backend.academy.scrapper.scheduler.handler.GithubUpdateHandler;
+import backend.academy.scrapper.scheduler.handler.PuppetTheatreUpdateHandler;
 import backend.academy.scrapper.scheduler.handler.StackOverflowUpdateHandler;
+import backend.academy.scrapper.service.LinkTypeResolver;
+import backend.academy.shared.dto.LinkType;
 import backend.academy.shared.dto.TrackedLink;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -22,17 +26,23 @@ public class LinkUpdateService {
     private final LinkOperationRepository linkOperationRepository;
     private final GithubUpdateHandler githubHandler;
     private final StackOverflowUpdateHandler stackoverflowHandler;
+    private final PuppetTheatreUpdateHandler puppetTheatreHandler;
+    private final LinkTypeResolver linkTypeResolver;
     private final ExecutorService executorService;
 
     public LinkUpdateService(
             ScrapperConfig scrapperConfig,
             LinkOperationRepository linkOperationRepository,
             GithubUpdateHandler githubHandler,
-            StackOverflowUpdateHandler stackoverflowHandler) {
+            StackOverflowUpdateHandler stackoverflowHandler,
+            PuppetTheatreUpdateHandler puppetTheatreHandler,
+            LinkTypeResolver linkTypeResolver) {
         this.scrapperConfig = scrapperConfig;
         this.linkOperationRepository = linkOperationRepository;
         this.githubHandler = githubHandler;
         this.stackoverflowHandler = stackoverflowHandler;
+        this.puppetTheatreHandler = puppetTheatreHandler;
+        this.linkTypeResolver = linkTypeResolver;
         this.executorService =
                 Executors.newFixedThreadPool(scrapperConfig.scheduler().threadCount());
     }
@@ -62,19 +72,21 @@ public class LinkUpdateService {
 
     private void checkLinkUpdates(TrackedLink trackedLink) {
         String url = trackedLink.url();
-        CompletableFuture<Void> updateFuture;
-
-        if (GithubUpdateHandler.isGithubLink(url)) {
-            updateFuture = githubHandler.handle(trackedLink);
-        } else if (StackOverflowUpdateHandler.isStackoverflowLink(url)) {
-            updateFuture = stackoverflowHandler.handle(trackedLink);
-        } else {
+        Optional<LinkType> linkType = linkTypeResolver.resolve(url);
+        if (linkType.isEmpty()) {
             log.atWarn()
                     .setMessage("Unknown url pattern, skipping link")
                     .addKeyValue("url", url)
                     .log();
             return;
         }
+
+        CompletableFuture<Void> updateFuture =
+                switch (linkType.orElseThrow()) {
+                    case GITHUB -> githubHandler.handle(trackedLink);
+                    case STACKOVERFLOW -> stackoverflowHandler.handle(trackedLink);
+                    case PUPPET_THEATRE -> puppetTheatreHandler.handle(trackedLink);
+                };
 
         updateFuture.thenRun(() ->
                 linkOperationRepository.updateLastCheckedTime(trackedLink, LocalDateTime.now(ZoneId.systemDefault())));

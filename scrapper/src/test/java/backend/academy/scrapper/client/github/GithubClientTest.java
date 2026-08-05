@@ -47,7 +47,7 @@ public class GithubClientTest {
     void setUp() {
         ScrapperConfig.GithubCredentials githubCredentials =
                 new ScrapperConfig.GithubCredentials("token", wireMock.baseUrl());
-        ScrapperConfig config = new ScrapperConfig(null, null, 100, null, githubCredentials, null, null);
+        ScrapperConfig config = new ScrapperConfig(null, null, 100, null, githubCredentials, null, null, null);
 
         githubClient = new GithubClient(config);
     }

@@ -1,7 +1,7 @@
 services:
   postgresql:
     container_name: postgresql
-    image: postgres:latest
+    image: postgres:17.10-alpine
     environment:
       POSTGRES_DB: scrapper
       POSTGRES_USER: postgres
@@ -12,12 +12,19 @@ services:
       - "5433:5432"
     networks:
       - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   liquibase-migrations:
     container_name: migrations
-    image: liquibase/liquibase:4.29
+    image: liquibase/liquibase:4.29.2
     depends_on:
-      - postgresql
+      postgresql:
+        condition: service_healthy
     command:
       - --searchPath=/changesets
       - --changelog-file=master.xml
@@ -32,7 +39,7 @@ services:
       - backend
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.9.0
     hostname: zookeeper
     container_name: zookeeper
     ports:
@@ -44,11 +51,18 @@ services:
       - zookeeper-datalog:/datalog
     networks:
       - backend
+    healthcheck:
+      test: ["CMD", "cub", "zk-ready", "localhost:2181", "10"]
+      interval: 5s
+      timeout: 15s
+      retries: 10
+      start_period: 10s
 
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.9.0
     hostname: kafka
     container_name: kafka
+    restart: on-failure:5
     ports:
       - "19092:19092"
     environment:
@@ -56,18 +70,26 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,DOCKER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS: 6000
       KAFKA_BROKER_ID: 1
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_MIN_IN_SYNC_REPLICAS: 1
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     volumes:
       - kafka-data:/var/lib/kafka/data
     networks:
       - backend
+    healthcheck:
+      test: ["CMD", "cub", "kafka-ready", "-b", "localhost:9092", "1", "10"]
+      interval: 5s
+      timeout: 15s
+      retries: 10
+      start_period: 60s
 
   kafka-ui:
-    image: provectuslabs/kafka-ui:latest
+    image: provectuslabs/kafka-ui:v0.7.2
     container_name: kafka-ui
     ports:
       - "8082:8080"
@@ -77,12 +99,13 @@ services:
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
       DYNAMIC_CONFIG_ENABLED: true
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     networks:
       - backend
 
   redis:
-    image: redis:latest
+    image: redis:8.8.1-alpine
     container_name: redis
     ports:
       - "6379:6379"
@@ -90,9 +113,15 @@ services:
       - redis-data:/data
     networks:
       - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.5.0
     ports:
       - "9090:9090"
     volumes:
@@ -102,7 +131,7 @@ services:
       - backend
 
   grafana:
-    image: grafana/grafana-oss:latest
+    image: grafana/grafana-oss:12.0.2
     ports:
       - "3000:3000"
     volumes:
@@ -116,10 +145,10 @@ services:
       dockerfile: bot/Dockerfile
     container_name: bot
     depends_on:
-      - redis
-      - kafka
-      - prometheus
-      - grafana
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
       - SPRING_DATA_REDIS_HOST=redis
@@ -131,6 +160,12 @@ services:
       - "8090:8090"
     networks:
       - backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://localhost:8090/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
   scrapper:
     build:
@@ -138,11 +173,14 @@ services:
       dockerfile: scrapper/Dockerfile
     container_name: scrapper
     depends_on:
-      - postgresql
-      - redis
-      - kafka
-      - prometheus
-      - grafana
+      liquibase-migrations:
+        condition: service_completed_successfully
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
       - SO_TOKEN_KEY=${SO_TOKEN_KEY}
       - SO_ACCESS_TOKEN=${SO_ACCESS_TOKEN}
@@ -157,6 +195,12 @@ services:
       - "8091:8091"
     networks:
       - backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://localhost:8091/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
 networks:
   backend:

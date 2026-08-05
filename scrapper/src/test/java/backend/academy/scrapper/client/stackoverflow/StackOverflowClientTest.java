@@ -51,7 +51,7 @@ public class StackOverflowClientTest {
     void setUp() {
         ScrapperConfig.StackOverflowCredentials stackOverflowCredentials =
                 new ScrapperConfig.StackOverflowCredentials("testKey", "testToken", wireMock.baseUrl());
-        ScrapperConfig config = new ScrapperConfig(null, null, 100, null, null, stackOverflowCredentials, null);
+        ScrapperConfig config = new ScrapperConfig(null, null, 100, null, null, stackOverflowCredentials, null, null);
 
         stackoverflowClient = new StackOverflowClient(config);
     }

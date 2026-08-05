@@ -61,6 +61,19 @@ public class GlobalExceptionHandler {
                                 .toList()));
     }
 
+    @ExceptionHandler(UnsupportedLinkException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnsupportedLinkException(UnsupportedLinkException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiErrorResponse(
+                        "Некорректные параметры запроса",
+                        String.valueOf(HttpStatus.BAD_REQUEST),
+                        ex.getClass().getSimpleName(),
+                        ex.getMessage(),
+                        Arrays.stream(ex.getStackTrace())
+                                .map(StackTraceElement::toString)
+                                .toList()));
+    }
+
     @ExceptionHandler(TagAlreadyExistsException.class)
     public ResponseEntity<ApiErrorResponse> handleTagAlreadyExistsException(TagAlreadyExistsException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)

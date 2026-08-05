@@ -2,6 +2,7 @@ package backend.academy.scrapper.scheduler.service;
 
 import static backend.academy.scrapper.TestData.GITHUB_TRACKED_LINK;
 import static backend.academy.scrapper.TestData.LINK_UPDATE;
+import static backend.academy.scrapper.TestData.PUPPET_THEATRE_TRACKED_LINK;
 import static backend.academy.scrapper.TestData.STACKOVERFLOW_TRACKED_LINK;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -84,7 +85,7 @@ class NotificationServiceTest {
         // Arrange
         List<Long> chats = List.of(1L);
         when(linkOperationRepository.getFiltersForChatAndLink(1L, STACKOVERFLOW_TRACKED_LINK))
-                .thenReturn(List.of("user=author"));
+                .thenReturn(List.of("user=" + UPDATE_AUTHOR));
         when(notificationService.getSubscribedChats(STACKOVERFLOW_TRACKED_LINK)).thenReturn(chats);
 
         // Act
@@ -94,6 +95,28 @@ class NotificationServiceTest {
 
         // Assert
         verify(updateSender, never()).sendUpdate(any());
+    }
+
+    @Test
+    void shouldSendUpdateWithoutApplyingUserFilterWhenAuthorIsAbsent() {
+        // Arrange
+        when(linkOperationRepository.getChatsForLink(PUPPET_THEATRE_TRACKED_LINK, 0))
+                .thenReturn(List.of(1L));
+        when(linkOperationRepository.getChatsForLink(PUPPET_THEATRE_TRACKED_LINK, 1))
+                .thenReturn(List.of());
+        when(linkOperationRepository.getFiltersForChatAndLink(1L, PUPPET_THEATRE_TRACKED_LINK))
+                .thenReturn(List.of("user=anyone"));
+        when(chatOperationRepository.getNotificationMode(1L)).thenReturn(NotificationMode.IMMEDIATE);
+        when(updateSender.sendUpdate(any())).thenReturn(Mono.empty());
+
+        // Act
+        notificationService.sendUpdate(PUPPET_THEATRE_TRACKED_LINK, UPDATE_MESSAGE).block();
+
+        // Assert
+        verify(updateSender)
+                .sendUpdate(argThat(update -> update.url().equals(PUPPET_THEATRE_TRACKED_LINK.url())
+                        && update.description().equals(UPDATE_MESSAGE)
+                        && update.tgChatIds().equals(List.of(1L))));
     }
 
     @Test

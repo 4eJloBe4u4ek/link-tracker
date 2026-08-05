@@ -2,5 +2,6 @@ package backend.academy.shared.dto;
 
 public enum LinkType {
     GITHUB,
-    STACKOVERFLOW
+    STACKOVERFLOW,
+    PUPPET_THEATRE
 }

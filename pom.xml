@@ -34,6 +34,7 @@
         <commons-text.version>1.12.0</commons-text.version>
         <commons-compress.version>1.27.1</commons-compress.version>
         <commons-io.version>2.18.0</commons-io.version>
+        <jsoup.version>1.23.1</jsoup.version>
 
         <springdoc.version>2.8.4</springdoc.version>
         <bucket4j-spring-boot-starter.version>0.12.8</bucket4j-spring-boot-starter.version>
@@ -43,6 +44,7 @@
         <lettuce-core.version>6.5.5.RELEASE</lettuce-core.version>
 
         <java-telegram-bot-api.version>7.11.0</java-telegram-bot-api.version>
+        <testcontainers.version>1.21.4</testcontainers.version>
         <wiremock.version>3.10.0</wiremock.version>
 
         <!-- annotations -->
@@ -109,6 +111,11 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-text</artifactId>
                 <version>${commons-text.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jsoup</groupId>
+                <artifactId>jsoup</artifactId>
+                <version>${jsoup.version}</version>
             </dependency>
 
             <dependency>

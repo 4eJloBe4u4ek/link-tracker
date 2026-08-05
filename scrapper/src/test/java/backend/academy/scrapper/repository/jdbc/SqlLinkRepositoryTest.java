@@ -1,5 +1,6 @@
 package backend.academy.scrapper.repository.jdbc;
 
+import static backend.academy.scrapper.TestData.PUPPET_THEATRE_URL;
 import static backend.academy.scrapper.TestData.TEST_CHAT_ID;
 import static backend.academy.scrapper.TestData.TEST_FILTER;
 import static backend.academy.scrapper.TestData.TEST_TAG;
@@ -11,6 +12,7 @@ import backend.academy.scrapper.BaseIntegrationTest;
 import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.scrapper.exception.LinkAlreadyExistsException;
 import backend.academy.scrapper.exception.LinkNotFoundException;
+import backend.academy.shared.dto.LinkType;
 import backend.academy.shared.dto.TrackedLink;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -54,6 +56,28 @@ class SqlLinkRepositoryTest extends BaseIntegrationTest {
         Integer countLinksWithId = jdbcTemplate.queryForObject(COUNT_LINKS_BY_URL, Integer.class, TEST_URL);
         assertThat(countLinksWithId).isEqualTo(1);
         assertThat(trackedLink.url()).isEqualTo(TEST_URL);
+    }
+
+    @Test
+    @Transactional
+    void shouldCountOnlyCanonicalPuppetTheatreUrl() {
+        // Arrange
+        List<String> acceptedUrls = List.of(PUPPET_THEATRE_URL);
+        List<String> rejectedUrls = List.of(
+                "http://puppet-minsk.by/afisha",
+                "https://www.puppet-minsk.by/afisha/",
+                "HTTPS://PUPPET-MINSK.BY/AFISHA?date=2026-09-12#tickets",
+                "https://puppet-minsk.by/afisha/archive",
+                "https://puppet-minsk.by/afishax",
+                "https://notpuppet-minsk.by/afisha",
+                "https://puppet-minsk.by.evil/afisha");
+        acceptedUrls.forEach(url -> sqlLinkRepository.addLink(TEST_CHAT_ID, url, List.of(), List.of()));
+        rejectedUrls.forEach(url -> sqlLinkRepository.addLink(TEST_CHAT_ID, url, List.of(), List.of()));
+
+        // Act & Assert
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM links", Long.class))
+                .isEqualTo((long) acceptedUrls.size() + rejectedUrls.size());
+        assertThat(sqlLinkRepository.countByType(LinkType.PUPPET_THEATRE)).isEqualTo((long) acceptedUrls.size());
     }
 
     @Test

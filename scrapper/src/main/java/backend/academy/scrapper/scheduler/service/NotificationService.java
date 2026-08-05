@@ -8,6 +8,7 @@ import backend.academy.shared.dto.NotificationMode;
 import backend.academy.shared.dto.TrackedLink;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -25,25 +26,38 @@ public class NotificationService {
     private static final String USER_FILTER_PREFIX = "user=";
     private static final String DIGEST_KEY_PREFIX = "digest:";
 
+    public Mono<Void> sendUpdate(TrackedLink trackedLink, String message) {
+        return sendUpdate(trackedLink, message, Optional.empty());
+    }
+
     public Mono<Void> sendUpdate(TrackedLink trackedLink, String message, String author) {
+        return sendUpdate(trackedLink, message, Optional.of(author));
+    }
+
+    private Mono<Void> sendUpdate(TrackedLink trackedLink, String message, Optional<String> author) {
         List<Long> chatsToNotifyImmediate = new ArrayList<>();
         for (Long chatId : getSubscribedChats(trackedLink)) {
             List<String> filters = linkOperationRepository.getFiltersForChatAndLink(chatId, trackedLink);
-            if (!filters.contains(USER_FILTER_PREFIX + author)) {
-                if (chatOperationRepository.getNotificationMode(chatId) == NotificationMode.IMMEDIATE) {
-                    chatsToNotifyImmediate.add(chatId);
-                } else if (chatOperationRepository.getNotificationMode(chatId) == NotificationMode.DAILY_DIGEST) {
-                    String key = DIGEST_KEY_PREFIX + chatId;
-                    redisTemplate
-                            .opsForList()
-                            .rightPush(
-                                    key,
-                                    new LinkUpdate(
-                                            linkUpdateIdGenerator.getAndIncrement(),
-                                            trackedLink.url(),
-                                            message,
-                                            List.of(chatId)));
-                }
+            boolean excludedByAuthorFilter = author
+                    .map(value -> filters.contains(USER_FILTER_PREFIX + value))
+                    .orElse(false);
+            if (excludedByAuthorFilter) {
+                continue;
+            }
+
+            if (chatOperationRepository.getNotificationMode(chatId) == NotificationMode.IMMEDIATE) {
+                chatsToNotifyImmediate.add(chatId);
+            } else if (chatOperationRepository.getNotificationMode(chatId) == NotificationMode.DAILY_DIGEST) {
+                String key = DIGEST_KEY_PREFIX + chatId;
+                redisTemplate
+                        .opsForList()
+                        .rightPush(
+                                key,
+                                new LinkUpdate(
+                                        linkUpdateIdGenerator.getAndIncrement(),
+                                        trackedLink.url(),
+                                        message,
+                                        List.of(chatId)));
             }
         }
 

@@ -1,6 +1,8 @@
 package backend.academy.scrapper.config;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -17,6 +19,7 @@ public record ScrapperConfig(
         @Bean Scheduler scheduler,
         GithubCredentials github,
         StackOverflowCredentials stackOverflow,
+        @Valid @NotNull PuppetTheatre puppetTheatre,
         UpdateEvents updateEvents) {
 
     public enum AccessType {
@@ -46,6 +49,8 @@ public record ScrapperConfig(
             }
         }
     }
+
+    public record PuppetTheatre(@NotEmpty String ticketproBaseUrl, @NotEmpty String venuePath) {}
 
     public record UpdateEvents(
             @NotEmpty String topic, @NotEmpty String dlqTopic, @Positive int partitions, @Positive short replicas) {

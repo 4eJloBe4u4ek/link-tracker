@@ -1,5 +1,6 @@
 package backend.academy.scrapper.service;
 
+import backend.academy.scrapper.exception.UnsupportedLinkException;
 import backend.academy.scrapper.repository.LinkOperationRepository;
 import backend.academy.shared.dto.AddLinkRequest;
 import backend.academy.shared.dto.LinkMapper;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class LinkService {
     private final LinkOperationRepository linkOperationRepository;
+    private final LinkTypeResolver linkTypeResolver;
 
     public ListLinksResponse getLinksByChat(Long chatId) {
         int page = 0;
@@ -36,6 +38,9 @@ public class LinkService {
     }
 
     public LinkResponse addLink(Long chatId, AddLinkRequest addLinkRequest) {
+        if (linkTypeResolver.resolve(addLinkRequest.link()).isEmpty()) {
+            throw new UnsupportedLinkException("Источник не поддерживается: " + addLinkRequest.link());
+        }
         LinkResponse linkResponse = LinkMapper.toLinkResponse(linkOperationRepository.addLink(
                 chatId, addLinkRequest.link(), addLinkRequest.tags(), addLinkRequest.filters()));
         log.atInfo()

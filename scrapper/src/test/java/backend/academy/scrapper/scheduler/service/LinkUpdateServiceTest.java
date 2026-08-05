@@ -1,6 +1,7 @@
 package backend.academy.scrapper.scheduler.service;
 
 import static backend.academy.scrapper.TestData.GITHUB_TRACKED_LINK;
+import static backend.academy.scrapper.TestData.PUPPET_THEATRE_TRACKED_LINK;
 import static backend.academy.scrapper.TestData.STACKOVERFLOW_TRACKED_LINK;
 import static backend.academy.scrapper.TestData.UNKNOWN_TRACKED_LINK;
 import static org.mockito.ArgumentMatchers.any;
@@ -13,7 +14,9 @@ import static org.mockito.Mockito.when;
 import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.scrapper.repository.LinkOperationRepository;
 import backend.academy.scrapper.scheduler.handler.GithubUpdateHandler;
+import backend.academy.scrapper.scheduler.handler.PuppetTheatreUpdateHandler;
 import backend.academy.scrapper.scheduler.handler.StackOverflowUpdateHandler;
+import backend.academy.scrapper.service.LinkTypeResolver;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +43,9 @@ class LinkUpdateServiceTest {
     @Mock
     private StackOverflowUpdateHandler stackoverflowHandler;
 
+    @Mock
+    private PuppetTheatreUpdateHandler puppetTheatreHandler;
+
     private LinkUpdateService linkUpdateService;
 
     @BeforeEach
@@ -48,8 +54,13 @@ class LinkUpdateServiceTest {
         when(scheduler.threadCount()).thenReturn(2);
         when(scrapperConfig.batchSize()).thenReturn(4);
 
-        linkUpdateService =
-                new LinkUpdateService(scrapperConfig, linkOperationRepository, githubHandler, stackoverflowHandler);
+        linkUpdateService = new LinkUpdateService(
+                scrapperConfig,
+                linkOperationRepository,
+                githubHandler,
+                stackoverflowHandler,
+                puppetTheatreHandler,
+                new LinkTypeResolver());
     }
 
     @Test
@@ -82,6 +93,21 @@ class LinkUpdateServiceTest {
     }
 
     @Test
+    void shouldCheckForPuppetTheatreUpdates() {
+        // Arrange
+        when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(PUPPET_THEATRE_TRACKED_LINK));
+        when(puppetTheatreHandler.handle(PUPPET_THEATRE_TRACKED_LINK))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        // Act
+        linkUpdateService.checkForUpdates();
+
+        // Assert
+        verify(puppetTheatreHandler).handle(PUPPET_THEATRE_TRACKED_LINK);
+        verify(linkOperationRepository).updateLastCheckedTime(eq(PUPPET_THEATRE_TRACKED_LINK), any());
+    }
+
+    @Test
     void shouldSkipUnknownLinks() {
         // Arrange
         when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(UNKNOWN_TRACKED_LINK));
@@ -90,7 +116,7 @@ class LinkUpdateServiceTest {
         linkUpdateService.checkForUpdates();
 
         // Assert
-        verifyNoInteractions(githubHandler, stackoverflowHandler);
+        verifyNoInteractions(githubHandler, stackoverflowHandler, puppetTheatreHandler);
         verify(linkOperationRepository, never()).updateLastCheckedTime(eq(UNKNOWN_TRACKED_LINK), any());
     }
 }

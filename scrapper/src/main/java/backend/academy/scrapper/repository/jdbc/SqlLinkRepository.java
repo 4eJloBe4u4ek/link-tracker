@@ -76,6 +76,8 @@ public class SqlLinkRepository extends BaseSqlRepository implements LinkOperatio
             "SELECT COUNT(*) FROM links WHERE url LIKE 'https://github.com/%'";
     private static final String GET_STACKOVERFLOW_LINK_COUNT =
             "SELECT COUNT(*) FROM links WHERE url LIKE 'https://stackoverflow.com/questions/%'";
+    private static final String GET_PUPPET_THEATRE_LINK_COUNT =
+            "SELECT COUNT(*) FROM links WHERE url = 'https://puppet-minsk.by/afisha'";
 
     private final RowMapper<TrackedLink> trackedLinkRowMapper = (rs, rowNum) -> new TrackedLink(
             rs.getLong("id"),
@@ -169,6 +171,7 @@ public class SqlLinkRepository extends BaseSqlRepository implements LinkOperatio
         return switch (linkType) {
             case GITHUB -> jdbcTemplate.queryForObject(GET_GITHUB_LINK_COUNT, Long.class);
             case STACKOVERFLOW -> jdbcTemplate.queryForObject(GET_STACKOVERFLOW_LINK_COUNT, Long.class);
+            case PUPPET_THEATRE -> jdbcTemplate.queryForObject(GET_PUPPET_THEATRE_LINK_COUNT, Long.class);
         };
     }
 
