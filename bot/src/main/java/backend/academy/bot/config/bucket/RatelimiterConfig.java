@@ -5,7 +5,6 @@ import io.github.bucket4j.BucketConfiguration;
 import io.github.bucket4j.distributed.proxy.ProxyManager;
 import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager;
 import io.lettuce.core.RedisClient;
-import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
 import io.lettuce.core.codec.RedisCodec;
@@ -23,10 +22,7 @@ public class RatelimiterConfig {
 
     @Bean
     public RedisClient redisClient() {
-        return RedisClient.create(RedisURI.builder()
-                .withHost(redisProperties.host())
-                .withPort(redisProperties.port())
-                .build());
+        return RedisClient.create(redisProperties.redisUri());
     }
 
     @Bean
