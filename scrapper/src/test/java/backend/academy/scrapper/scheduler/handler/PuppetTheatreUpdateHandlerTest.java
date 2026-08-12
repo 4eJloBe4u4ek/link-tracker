@@ -4,24 +4,30 @@ import static backend.academy.scrapper.TestData.PUPPET_THEATRE_TRACKED_LINK;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import backend.academy.scrapper.client.puppettheatre.PuppetTheatreClient;
+import backend.academy.scrapper.client.puppettheatre.TicketproCheckResult;
+import backend.academy.scrapper.client.puppettheatre.TicketproException;
 import backend.academy.scrapper.client.puppettheatre.PuppetTheatreSession;
+import backend.academy.scrapper.monitoring.HealthchecksClient;
+import backend.academy.scrapper.monitoring.TicketproMetrics;
 import backend.academy.scrapper.repository.PuppetTheatreSnapshotRepository;
 import backend.academy.scrapper.scheduler.service.NotificationService;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +39,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 
 @ExtendWith(MockitoExtension.class)
 class PuppetTheatreUpdateHandlerTest {
@@ -52,12 +59,72 @@ class PuppetTheatreUpdateHandlerTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private TicketproMetrics ticketproMetrics;
+
+    @Mock
+    private HealthchecksClient healthchecksClient;
+
     private PuppetTheatreUpdateHandler handler;
 
     @BeforeEach
     void setUp() {
         handler = new PuppetTheatreUpdateHandler(
-                client, snapshotRepository, notificationService, new SimpleMeterRegistry());
+                client,
+                snapshotRepository,
+                notificationService,
+                new SimpleMeterRegistry(),
+                ticketproMetrics,
+                healthchecksClient);
+    }
+
+    @Test
+    void shouldSkipOverlappingCheck() {
+        // Arrange
+        Sinks.One<List<PuppetTheatreSession>> firstCheck = Sinks.one();
+        when(client.getAvailableSessions()).thenReturn(firstCheck.asMono());
+
+        // Act
+        CompletableFuture<Void> activeCheck = handler.handle(PUPPET_THEATRE_TRACKED_LINK);
+        CompletableFuture<Void> overlappingCheck = handler.handle(PUPPET_THEATRE_TRACKED_LINK);
+
+        // Assert
+        assertFalse(activeCheck.isDone());
+        assertTrue(overlappingCheck.isDone());
+        verify(client).getAvailableSessions();
+    }
+
+    @Test
+    void shouldAllowNextCheckAfterSuccess() {
+        // Arrange
+        when(client.getAvailableSessions()).thenReturn(Mono.just(List.of()));
+        when(snapshotRepository.getAvailableSessionKeys(PUPPET_THEATRE_TRACKED_LINK.id()))
+                .thenReturn(Optional.empty());
+
+        // Act
+        handler.handle(PUPPET_THEATRE_TRACKED_LINK).join();
+        handler.handle(PUPPET_THEATRE_TRACKED_LINK).join();
+
+        // Assert
+        verify(client, times(2)).getAvailableSessions();
+    }
+
+    @Test
+    void shouldAllowNextCheckAfterFailure() {
+        // Arrange
+        Sinks.One<List<PuppetTheatreSession>> firstCheck = Sinks.one();
+        when(client.getAvailableSessions()).thenReturn(firstCheck.asMono(), Mono.just(List.of()));
+        when(snapshotRepository.getAvailableSessionKeys(PUPPET_THEATRE_TRACKED_LINK.id()))
+                .thenReturn(Optional.empty());
+        CompletableFuture<Void> failedCheck = handler.handle(PUPPET_THEATRE_TRACKED_LINK);
+
+        // Act & Assert
+        assertTrue(firstCheck
+                .tryEmitError(new TicketproException(TicketproCheckResult.NETWORK_ERROR, "request failed"))
+                .isSuccess());
+        assertThrows(CompletionException.class, failedCheck::join);
+        handler.handle(PUPPET_THEATRE_TRACKED_LINK).join();
+        verify(client, times(2)).getAvailableSessions();
     }
 
     @Test
@@ -74,6 +141,12 @@ class PuppetTheatreUpdateHandlerTest {
         verify(notificationService, never()).sendUpdate(eq(PUPPET_THEATRE_TRACKED_LINK), anyString());
         verify(snapshotRepository)
                 .replaceAvailableSessionKeys(PUPPET_THEATRE_TRACKED_LINK.id(), Set.of(SESSION.snapshotKey()));
+        InOrder completionOrder = inOrder(snapshotRepository, ticketproMetrics, healthchecksClient);
+        completionOrder
+                .verify(snapshotRepository)
+                .replaceAvailableSessionKeys(PUPPET_THEATRE_TRACKED_LINK.id(), Set.of(SESSION.snapshotKey()));
+        completionOrder.verify(ticketproMetrics).recordSuccess(1);
+        completionOrder.verify(healthchecksClient).pingTicketpro();
     }
 
     @Test
@@ -122,9 +195,10 @@ class PuppetTheatreUpdateHandlerTest {
         // Act & Assert
         assertThrows(CompletionException.class, () -> handler.handle(PUPPET_THEATRE_TRACKED_LINK)
                 .join());
-
-        // Assert
-        verify(snapshotRepository, never()).replaceAvailableSessionKeys(eq(PUPPET_THEATRE_TRACKED_LINK.id()), any());
+        verify(snapshotRepository, never())
+                .replaceAvailableSessionKeys(eq(PUPPET_THEATRE_TRACKED_LINK.id()), anySet());
+        verify(ticketproMetrics).recordFailure(TicketproCheckResult.DELIVERY_ERROR);
+        verifyNoInteractions(healthchecksClient);
     }
 
     @Test
@@ -156,16 +230,45 @@ class PuppetTheatreUpdateHandlerTest {
     @Test
     void shouldKeepSnapshotWhenCatalogCheckFails() {
         // Arrange
-        when(client.getAvailableSessions()).thenReturn(Mono.error(new IllegalStateException("bot-protection")));
+        when(client.getAvailableSessions())
+                .thenReturn(Mono.error(new TicketproException(TicketproCheckResult.ANTIBOT, "bot-protection")));
 
         // Act & Assert
         assertThrows(CompletionException.class, () -> handler.handle(PUPPET_THEATRE_TRACKED_LINK)
                 .join());
-
-        // Assert
         verify(snapshotRepository, never()).getAvailableSessionKeys(PUPPET_THEATRE_TRACKED_LINK.id());
-        verify(snapshotRepository, never()).replaceAvailableSessionKeys(eq(PUPPET_THEATRE_TRACKED_LINK.id()), any());
+        verify(snapshotRepository, never())
+                .replaceAvailableSessionKeys(eq(PUPPET_THEATRE_TRACKED_LINK.id()), anySet());
         verifyNoInteractions(notificationService);
+        verify(ticketproMetrics).recordFailure(TicketproCheckResult.ANTIBOT);
+        verifyNoInteractions(healthchecksClient);
+    }
+
+    @Test
+    void shouldReportStorageFailureWithoutConfirmingTicketpro() {
+        // Arrange
+        when(client.getAvailableSessions()).thenReturn(Mono.just(List.of(SESSION)));
+        when(snapshotRepository.getAvailableSessionKeys(PUPPET_THEATRE_TRACKED_LINK.id()))
+                .thenThrow(new IllegalStateException("redis unavailable"));
+
+        // Act & Assert
+        assertThrows(CompletionException.class, () -> handler.handle(PUPPET_THEATRE_TRACKED_LINK)
+                .join());
+        verify(ticketproMetrics).recordFailure(TicketproCheckResult.STORAGE_ERROR);
+        verifyNoInteractions(healthchecksClient);
+        verifyNoInteractions(notificationService);
+    }
+
+    @Test
+    void shouldNotCountOrConfirmRequestSkippedDuringBackoff() {
+        // Arrange
+        when(client.getAvailableSessions())
+                .thenReturn(Mono.error(TicketproException.duringBackoff(TicketproCheckResult.RATE_LIMITED)));
+
+        // Act & Assert
+        assertThrows(CompletionException.class, () -> handler.handle(PUPPET_THEATRE_TRACKED_LINK)
+                .join());
+        verifyNoInteractions(ticketproMetrics, healthchecksClient, snapshotRepository, notificationService);
     }
 
     @Test

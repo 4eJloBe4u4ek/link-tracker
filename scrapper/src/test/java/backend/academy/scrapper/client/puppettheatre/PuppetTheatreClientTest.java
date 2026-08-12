@@ -7,11 +7,18 @@ import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.notMatching;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import backend.academy.scrapper.config.ScrapperConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import java.net.URI;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,10 +27,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 class PuppetTheatreClientTest {
     private static final String VENUE_PATH = "/venue/puppet-theatre/";
+    private static final Instant NOW = Instant.parse("2026-08-10T15:00:00Z");
 
     @RegisterExtension
     static WireMockExtension wireMock = WireMockExtension.newInstance()
@@ -31,12 +40,152 @@ class PuppetTheatreClientTest {
             .build();
 
     private PuppetTheatreClient client;
+    private MutableClock clock;
 
     @BeforeEach
     void setUp() {
         ScrapperConfig.PuppetTheatre puppetTheatre = new ScrapperConfig.PuppetTheatre(wireMock.baseUrl(), VENUE_PATH);
         ScrapperConfig config = new ScrapperConfig(null, null, 100, null, null, null, puppetTheatre, null);
-        client = new PuppetTheatreClient(config, new TicketproEventParser(config, new ObjectMapper()));
+        clock = new MutableClock(NOW);
+        client = new PuppetTheatreClient(
+                config, new TicketproEventParser(config, new ObjectMapper()), clock, Duration.ofSeconds(15));
+    }
+
+    @Test
+    void shouldBackOffForFifteenMinutesAfterForbiddenResponse() {
+        // Arrange
+        wireMock.stubFor(get(urlEqualTo(VENUE_PATH)).willReturn(aResponse().withStatus(403)));
+
+        // Act & Assert
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.FORBIDDEN);
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.FORBIDDEN);
+        wireMock.verify(1, getRequestedFor(urlEqualTo(VENUE_PATH)));
+        clock.advance(Duration.ofMinutes(15));
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.FORBIDDEN);
+        wireMock.verify(2, getRequestedFor(urlEqualTo(VENUE_PATH)));
+    }
+
+    @Test
+    void shouldHonorRetryAfterSeconds() {
+        // Arrange
+        wireMock.stubFor(get(urlEqualTo(VENUE_PATH))
+                .willReturn(aResponse().withStatus(429).withHeader(HttpHeaders.RETRY_AFTER, "120")));
+
+        // Act & Assert
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.RATE_LIMITED);
+        clock.advance(Duration.ofSeconds(119));
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.RATE_LIMITED);
+        wireMock.verify(1, getRequestedFor(urlEqualTo(VENUE_PATH)));
+        clock.advance(Duration.ofSeconds(1));
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.RATE_LIMITED);
+        wireMock.verify(2, getRequestedFor(urlEqualTo(VENUE_PATH)));
+    }
+
+    @Test
+    void shouldUseFiveMinuteBackoffForInvalidRetryAfter() {
+        // Arrange
+        wireMock.stubFor(get(urlEqualTo(VENUE_PATH))
+                .willReturn(aResponse().withStatus(429).withHeader(HttpHeaders.RETRY_AFTER, "invalid")));
+
+        // Act & Assert
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.RATE_LIMITED);
+        clock.advance(Duration.ofMinutes(5).minusSeconds(1));
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.RATE_LIMITED);
+        wireMock.verify(1, getRequestedFor(urlEqualTo(VENUE_PATH)));
+        clock.advance(Duration.ofSeconds(1));
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.RATE_LIMITED);
+        wireMock.verify(2, getRequestedFor(urlEqualTo(VENUE_PATH)));
+    }
+
+    @Test
+    void shouldHonorRetryAfterHttpDate() {
+        // Arrange
+        String retryAfter = DateTimeFormatter.RFC_1123_DATE_TIME.format(
+                ZonedDateTime.ofInstant(NOW.plusSeconds(120), ZoneId.of("GMT")));
+        wireMock.stubFor(get(urlEqualTo(VENUE_PATH))
+                .willReturn(aResponse().withStatus(429).withHeader(HttpHeaders.RETRY_AFTER, retryAfter)));
+
+        // Act & Assert
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.RATE_LIMITED);
+        clock.advance(Duration.ofSeconds(119));
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.RATE_LIMITED);
+        wireMock.verify(1, getRequestedFor(urlEqualTo(VENUE_PATH)));
+        clock.advance(Duration.ofSeconds(1));
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.RATE_LIMITED);
+        wireMock.verify(2, getRequestedFor(urlEqualTo(VENUE_PATH)));
+    }
+
+    @Test
+    void shouldCapRetryAfterAtOneHour() {
+        // Arrange
+        wireMock.stubFor(get(urlEqualTo(VENUE_PATH))
+                .willReturn(aResponse().withStatus(429).withHeader(HttpHeaders.RETRY_AFTER, "7200")));
+
+        // Act & Assert
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.RATE_LIMITED);
+        clock.advance(Duration.ofHours(1).minusSeconds(1));
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.RATE_LIMITED);
+        wireMock.verify(1, getRequestedFor(urlEqualTo(VENUE_PATH)));
+        clock.advance(Duration.ofSeconds(1));
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.RATE_LIMITED);
+        wireMock.verify(2, getRequestedFor(urlEqualTo(VENUE_PATH)));
+    }
+
+    @Test
+    void shouldBackOffAfterAntiBotChallenge() {
+        // Arrange
+        stubVenuePage("<div>Protected by Anubis</div>");
+
+        // Act & Assert
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.ANTIBOT);
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.ANTIBOT);
+        wireMock.verify(1, getRequestedFor(urlEqualTo(VENUE_PATH)));
+        clock.advance(Duration.ofMinutes(15));
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.ANTIBOT);
+        wireMock.verify(2, getRequestedFor(urlEqualTo(VENUE_PATH)));
+    }
+
+    @Test
+    void shouldClassifyRequestTimeout() {
+        // Arrange
+        wireMock.stubFor(get(urlEqualTo(VENUE_PATH))
+                .willReturn(aResponse()
+                        .withFixedDelay(500)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_HTML_VALUE)
+                        .withBody("<html></html>")));
+        ScrapperConfig.PuppetTheatre properties = new ScrapperConfig.PuppetTheatre(wireMock.baseUrl(), VENUE_PATH);
+        ScrapperConfig config = new ScrapperConfig(null, null, 100, null, null, null, properties, null);
+        PuppetTheatreClient shortTimeoutClient = new PuppetTheatreClient(
+                config, new TicketproEventParser(config, new ObjectMapper()), clock, Duration.ofMillis(100));
+
+        // Act & Assert
+        verifyFailureResult(shortTimeoutClient.getAvailableSessions(), TicketproCheckResult.TIMEOUT);
+    }
+
+    @Test
+    void shouldClassifyNetworkFailure() {
+        // Arrange
+        ScrapperConfig.PuppetTheatre properties =
+                new ScrapperConfig.PuppetTheatre("http://127.0.0.1:1", VENUE_PATH);
+        ScrapperConfig config = new ScrapperConfig(null, null, 100, null, null, null, properties, null);
+        PuppetTheatreClient unavailableClient = new PuppetTheatreClient(
+                config, new TicketproEventParser(config, new ObjectMapper()), clock, Duration.ofSeconds(2));
+
+        // Act & Assert
+        verifyFailureResult(unavailableClient.getAvailableSessions(), TicketproCheckResult.NETWORK_ERROR);
+    }
+
+    @Test
+    void shouldIncludeUnexpectedHttpStatusInErrorMessage() {
+        // Arrange
+        wireMock.stubFor(get(urlEqualTo(VENUE_PATH)).willReturn(aResponse().withStatus(502)));
+
+        // Act & Assert
+        StepVerifier.create(client.getAvailableSessions())
+                .expectErrorMatches(error -> error instanceof TicketproException ticketproException
+                        && ticketproException.result() == TicketproCheckResult.NETWORK_ERROR
+                        && ticketproException.getMessage().contains("502"))
+                .verify();
     }
 
     @Test
@@ -48,6 +197,7 @@ class PuppetTheatreClientTest {
                 <html>
                   <body>
                     <h1>Белорусский государственный театр кукол</h1>
+                    <div class="event-box"></div>
                     <script type="application/ld+json">
                     {
                       "@context": "https://schema.org",
@@ -93,6 +243,7 @@ class PuppetTheatreClientTest {
                 <html>
                   <body>
                     <h1>Белорусский государственный театр кукол</h1>
+                    <div class="event-box"></div>
                     <script type=application/ld+json>%s</script>
                   </body>
                 </html>
@@ -146,6 +297,8 @@ class PuppetTheatreClientTest {
                 <html>
                   <body>
                     <h1>Белорусский государственный театр кукол</h1>
+                    <div class="event-box"></div>
+                    <div class="event-box"></div>
                     <script type="application/ld+json">
                     [
                       {
@@ -197,6 +350,7 @@ class PuppetTheatreClientTest {
                   </head>
                   <body>
                     <h1>Белорусский государственный театр кукол</h1>
+                    <div class="event-box"></div>
                     <script type="application/ld+json">%s</script>
                   </body>
                 </html>
@@ -208,6 +362,8 @@ class PuppetTheatreClientTest {
                 <html>
                   <body>
                     <h1>Белорусский государственный театр кукол</h1>
+                    <div class="event-box"></div>
+                    <div class="event-box"></div>
                     <script type="application/ld+json">[%s, %s]</script>
                   </body>
                 </html>
@@ -251,6 +407,7 @@ class PuppetTheatreClientTest {
                 <html>
                   <body>
                     <h1>Белорусский государственный театр кукол</h1>
+                    <div class="event-box"></div>
                     <script type="application/ld+json">
                     {
                       "@type": "Event",
@@ -373,6 +530,18 @@ class PuppetTheatreClientTest {
                 .expectErrorMatches(error -> error instanceof IllegalStateException
                         && error.getMessage().contains("non-HTML"))
                 .verify();
+    }
+
+    @Test
+    void shouldClassifyOversizedHtmlAsInvalidContent() {
+        // Arrange
+        wireMock.stubFor(get(urlEqualTo(VENUE_PATH))
+                .willReturn(aResponse()
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_HTML_VALUE)
+                        .withBody("x".repeat(3 * 1024 * 1024))));
+
+        // Act & Assert
+        verifyFailureResult(client.getAvailableSessions(), TicketproCheckResult.INVALID_CONTENT);
     }
 
     @Test
@@ -533,6 +702,7 @@ class PuppetTheatreClientTest {
         <html>
           <body>
             <h1>Белорусский государственный театр кукол</h1>
+            <div class="event-box"></div>
             <script type="application/ld+json">%s</script>
           </body>
         </html>
@@ -553,5 +723,41 @@ class PuppetTheatreClientTest {
         }
         """
                 .formatted(url, title, startDate, endDate);
+    }
+
+    private void verifyFailureResult(Mono<List<PuppetTheatreSession>> result, TicketproCheckResult expectedResult) {
+        StepVerifier.create(result)
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(TicketproException.class);
+                    assertThat(((TicketproException) error).result()).isEqualTo(expectedResult);
+                })
+                .verify();
+    }
+
+    private static final class MutableClock extends Clock {
+        private Instant instant;
+
+        private MutableClock(Instant instant) {
+            this.instant = instant;
+        }
+
+        private void advance(Duration duration) {
+            instant = instant.plus(duration);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneId.of("UTC");
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
+        }
     }
 }
