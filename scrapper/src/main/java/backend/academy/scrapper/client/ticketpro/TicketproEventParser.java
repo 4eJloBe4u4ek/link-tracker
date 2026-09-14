@@ -1,7 +1,8 @@
-package backend.academy.scrapper.client.puppettheatre;
+package backend.academy.scrapper.client.ticketpro;
 
 import backend.academy.scrapper.config.ScrapperConfig;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -28,7 +29,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 @Component
 public class TicketproEventParser {
-    private static final String VENUE_NAME = "Белорусский государственный театр кукол";
+    private static final String VENUE_HEADING_SELECTOR = "h1";
     private static final String JSON_LD_SCRIPT_SELECTOR = "script[type=application/ld+json]";
     private static final String LAST_PAGE_LINK_SELECTOR = "link[rel=last]";
     private static final String JSON_LD_GRAPH = "@graph";
@@ -50,7 +51,7 @@ public class TicketproEventParser {
 
     public TicketproEventParser(ScrapperConfig scrapperConfig, ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        this.ticketproBaseUri = URI.create(scrapperConfig.puppetTheatre().ticketproBaseUrl());
+        this.ticketproBaseUri = URI.create(scrapperConfig.ticketpro().baseUrl());
     }
 
     public VenuePage parseVenuePage(String html) {
@@ -59,15 +60,21 @@ public class TicketproEventParser {
         }
 
         Document document = Jsoup.parse(html, ticketproBaseUri.toString());
-        if (!document.text().toLowerCase(Locale.ROOT).contains(VENUE_NAME.toLowerCase(Locale.ROOT))) {
-            throw new IllegalStateException("Ticketpro returned an unexpected page instead of the theatre venue");
-        }
+        String venueName = extractVenueName(document);
 
-        Map<String, PuppetTheatreSession> sessions = new LinkedHashMap<>();
+        Map<String, TicketproEvent> events = new LinkedHashMap<>();
         for (Element script : document.select(JSON_LD_SCRIPT_SELECTOR)) {
-            collectEvents(parseJsonLd(script.data()), sessions);
+            collectEvents(parseJsonLd(script.data()), events);
         }
-        return new VenuePage(List.copyOf(sessions.values()), extractLastPage(document));
+        return new VenuePage(venueName, List.copyOf(events.values()), extractLastPage(document));
+    }
+
+    private String extractVenueName(Document document) {
+        Element heading = document.selectFirst(VENUE_HEADING_SELECTOR);
+        if (heading == null || heading.text().isBlank()) {
+            throw new IllegalStateException("Ticketpro venue page has no heading");
+        }
+        return heading.text().trim();
     }
 
     private int extractLastPage(Document document) {
@@ -81,10 +88,18 @@ public class TicketproEventParser {
                 .getQueryParams()
                 .getFirst("page");
         if (page == null) {
-            return 1;
+            throw new IllegalStateException("Ticketpro returned invalid venue pagination");
         }
 
-        int lastPage = Integer.parseInt(page);
+        final int lastPage;
+        try {
+            lastPage = Integer.parseInt(page);
+        } catch (NumberFormatException exception) {
+            throw new IllegalStateException("Ticketpro returned invalid venue pagination", exception);
+        }
+        if (lastPage < 1) {
+            throw new IllegalStateException("Ticketpro returned invalid venue pagination");
+        }
         if (lastPage > MAX_PAGES) {
             throw new IllegalStateException("Ticketpro returned too many venue pages");
         }
@@ -93,28 +108,31 @@ public class TicketproEventParser {
 
     private JsonNode parseJsonLd(String json) {
         try {
-            return objectMapper.readTree(json);
+            return objectMapper
+                    .reader()
+                    .with(JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS)
+                    .readTree(json);
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Ticketpro returned malformed JSON-LD", exception);
         }
     }
 
-    private void collectEvents(JsonNode node, Map<String, PuppetTheatreSession> sessions) {
+    private void collectEvents(JsonNode node, Map<String, TicketproEvent> events) {
         if (node == null || node.isNull()) {
             return;
         }
         if (node.isArray()) {
-            node.forEach(child -> collectEvents(child, sessions));
+            node.forEach(child -> collectEvents(child, events));
             return;
         }
         if (node.has(JSON_LD_GRAPH)) {
-            collectEvents(node.get(JSON_LD_GRAPH), sessions);
+            collectEvents(node.get(JSON_LD_GRAPH), events);
         }
         if (!isEvent(node)) {
             return;
         }
 
-        toAvailableSession(node).ifPresent(session -> sessions.putIfAbsent(session.snapshotKey(), session));
+        toAvailableEvent(node).ifPresent(event -> events.putIfAbsent(event.snapshotKey(), event));
     }
 
     private boolean isEvent(JsonNode node) {
@@ -135,12 +153,7 @@ public class TicketproEventParser {
         return false;
     }
 
-    private Optional<PuppetTheatreSession> toAvailableSession(JsonNode event) {
-        String location = decodedText(event.path("location"), "name");
-        if (!VENUE_NAME.equalsIgnoreCase(location)) {
-            return Optional.empty();
-        }
-
+    private Optional<TicketproEvent> toAvailableEvent(JsonNode event) {
         Optional<JsonNode> availableOffer = findAvailableOffer(event.get("offers"));
         if (availableOffer.isEmpty()) {
             return Optional.empty();
@@ -160,7 +173,7 @@ public class TicketproEventParser {
         }
 
         EventDateTime dateTime = parseDateTime(startDateValue, endDateValue);
-        return Optional.of(new PuppetTheatreSession(
+        return Optional.of(new TicketproEvent(
                 title, dateTime.date(), dateTime.time(), formatPrice(availableOffer.get()), resolvedUrl.toString()));
     }
 
@@ -188,7 +201,10 @@ public class TicketproEventParser {
         try {
             TicketproDateTime start = parseTicketproDateTime(startValue);
             TicketproDateTime end = endValue.isBlank() ? start : parseTicketproDateTime(endValue);
-            if (end.date().isBefore(start.date())) {
+            if (end.date().isBefore(start.date())
+                    || (start.timestamp() != null
+                            && end.timestamp() != null
+                            && end.timestamp().isBefore(start.timestamp()))) {
                 throw new IllegalStateException("Ticketpro event has an invalid date range");
             }
             String date = start.date().equals(end.date())
@@ -204,20 +220,20 @@ public class TicketproEventParser {
 
     private TicketproDateTime parseTicketproDateTime(String value) {
         if (!value.contains("T")) {
-            return new TicketproDateTime(LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE), null);
+            return new TicketproDateTime(LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE), null, null);
         }
 
         DateTimeParseException colonOffsetFailure;
         try {
             OffsetDateTime dateTime = OffsetDateTime.parse(value);
-            return new TicketproDateTime(dateTime.toLocalDate(), dateTime.toLocalTime());
+            return new TicketproDateTime(dateTime.toLocalDate(), dateTime.toLocalTime(), dateTime);
         } catch (DateTimeParseException exception) {
             colonOffsetFailure = exception;
         }
 
         try {
             OffsetDateTime dateTime = OffsetDateTime.parse(value, TICKETPRO_COMPACT_OFFSET_DATE_TIME);
-            return new TicketproDateTime(dateTime.toLocalDate(), dateTime.toLocalTime());
+            return new TicketproDateTime(dateTime.toLocalDate(), dateTime.toLocalTime(), dateTime);
         } catch (DateTimeParseException exception) {
             exception.addSuppressed(colonOffsetFailure);
             throw exception;
@@ -265,12 +281,24 @@ public class TicketproEventParser {
     private boolean hasExpectedOrigin(URI uri) {
         return ticketproBaseUri.getScheme().equalsIgnoreCase(uri.getScheme())
                 && ticketproBaseUri.getHost().equalsIgnoreCase(uri.getHost())
+                && effectivePort(ticketproBaseUri) == effectivePort(uri)
                 && uri.getRawUserInfo() == null;
     }
 
-    public record VenuePage(List<PuppetTheatreSession> sessions, int lastPage) {}
+    private int effectivePort(URI uri) {
+        if (uri.getPort() != -1) {
+            return uri.getPort();
+        }
+        return switch (uri.getScheme().toLowerCase(Locale.ROOT)) {
+            case "http" -> 80;
+            case "https" -> 443;
+            default -> -1;
+        };
+    }
+
+    public record VenuePage(String venueName, List<TicketproEvent> events, int lastPage) {}
 
     private record EventDateTime(String date, String time) {}
 
-    private record TicketproDateTime(LocalDate date, LocalTime time) {}
+    private record TicketproDateTime(LocalDate date, LocalTime time, OffsetDateTime timestamp) {}
 }

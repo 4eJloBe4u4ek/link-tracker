@@ -12,9 +12,8 @@ app:
     key: ${SO_TOKEN_KEY}
     access-token: ${SO_ACCESS_TOKEN}
     base-url: https://api.stackexchange.com/2.3
-  puppet-theatre:
-    ticketpro-base-url: https://www.ticketpro.by
-    venue-path: /koncertnye-ploshhadki/belorusskij-gosudarstvennyj-teatr-kukol/
+  ticketpro:
+    base-url: https://www.ticketpro.by
   update-events:
     topic: updates
     dlq-topic: updates-dlq

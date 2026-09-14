@@ -22,6 +22,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class LinkServiceTest {
     private static final Long CHAT_ID = 42L;
+    private static final int MAX_CANONICAL_TICKETPRO_VENUE_URL_LENGTH = 255;
+    private static final String TICKETPRO_VENUE_URL_PREFIX = "https://www.ticketpro.by/koncertnye-ploshhadki/";
 
     @Mock
     private LinkOperationRepository linkOperationRepository;
@@ -63,5 +65,64 @@ class LinkServiceTest {
         // Assert
         assertThat(response.url()).isEqualTo(url);
         verify(linkOperationRepository).addLink(CHAT_ID, url, request.tags(), request.filters());
+    }
+
+    @Test
+    void shouldSaveSupportedTicketproVenueWithoutChangingUrl() {
+        // Arrange
+        String url = "https://www.ticketpro.by/koncertnye-ploshhadki/dvorec-respubliki/";
+        AddLinkRequest request = new AddLinkRequest(url, List.of(), List.of());
+        TrackedLink storedLink =
+                new TrackedLink(1L, url, request.tags(), request.filters(), LocalDateTime.MIN, LocalDateTime.MIN);
+        when(linkOperationRepository.addLink(CHAT_ID, url, request.tags(), request.filters()))
+                .thenReturn(storedLink);
+
+        // Act
+        LinkResponse response = linkService.addLink(CHAT_ID, request);
+
+        // Assert
+        assertThat(response.url()).isEqualTo(url);
+        verify(linkOperationRepository).addLink(CHAT_ID, url, request.tags(), request.filters());
+    }
+
+    @Test
+    void shouldRejectLegacyTicketproUrlBeforeRepositoryAccess() {
+        // Arrange
+        AddLinkRequest request = new AddLinkRequest("https://puppet-minsk.by/afisha", List.of(), List.of());
+
+        // Act & Assert
+        assertThrows(UnsupportedLinkException.class, () -> linkService.addLink(CHAT_ID, request));
+
+        // Assert
+        verifyNoInteractions(linkOperationRepository);
+    }
+
+    @Test
+    void shouldRejectOverlongTicketproVenueBeforeRepositoryAccess() {
+        // Arrange
+        String url = canonicalVenueUrl(MAX_CANONICAL_TICKETPRO_VENUE_URL_LENGTH + 1);
+        AddLinkRequest request = new AddLinkRequest(url, List.of(), List.of());
+
+        // Act & Assert
+        assertThrows(UnsupportedLinkException.class, () -> linkService.addLink(CHAT_ID, request));
+
+        // Assert
+        verifyNoInteractions(linkOperationRepository);
+    }
+
+    @Test
+    void shouldRejectNullLinkBeforeRepositoryAccess() {
+        // Arrange
+        AddLinkRequest request = new AddLinkRequest(null, List.of(), List.of());
+
+        // Act & Assert
+        assertThrows(UnsupportedLinkException.class, () -> linkService.addLink(CHAT_ID, request));
+
+        // Assert
+        verifyNoInteractions(linkOperationRepository);
+    }
+
+    private static String canonicalVenueUrl(int length) {
+        return TICKETPRO_VENUE_URL_PREFIX + "a".repeat(length - TICKETPRO_VENUE_URL_PREFIX.length() - 1) + "/";
     }
 }

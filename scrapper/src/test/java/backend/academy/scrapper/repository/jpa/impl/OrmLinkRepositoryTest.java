@@ -1,6 +1,5 @@
 package backend.academy.scrapper.repository.jpa.impl;
 
-import static backend.academy.scrapper.TestData.PUPPET_THEATRE_URL;
 import static backend.academy.scrapper.TestData.TEST_CHAT_ID;
 import static backend.academy.scrapper.TestData.TEST_FILTER;
 import static backend.academy.scrapper.TestData.TEST_TAG;
@@ -90,23 +89,23 @@ class OrmLinkRepositoryTest extends BaseIntegrationTest {
 
     @Test
     @Transactional
-    void shouldCountOnlyCanonicalPuppetTheatreUrl() {
+    void shouldCountTicketproVenueLinks() {
         // Arrange
-        List<String> acceptedUrls = List.of(PUPPET_THEATRE_URL);
-        List<String> rejectedUrls = List.of(
-                "http://puppet-minsk.by/afisha",
-                "https://www.puppet-minsk.by/afisha/",
-                "HTTPS://PUPPET-MINSK.BY/AFISHA?date=2026-09-12#tickets",
-                "https://puppet-minsk.by/afisha/archive",
-                "https://puppet-minsk.by/afishax",
-                "https://notpuppet-minsk.by/afisha",
-                "https://puppet-minsk.by.evil/afisha");
-        acceptedUrls.forEach(url -> ormLinkRepository.addLink(TEST_CHAT_ID, url, List.of(), List.of()));
-        rejectedUrls.forEach(url -> ormLinkRepository.addLink(TEST_CHAT_ID, url, List.of(), List.of()));
+        List<String> ticketproVenueUrls = List.of(
+                "https://www.ticketpro.by/koncertnye-ploshhadki/belorusskij-gosudarstvennyj-teatr-kukol/",
+                "https://www.ticketpro.by/koncertnye-ploshhadki/dvorec-respubliki/",
+                "https://www.ticketpro.by/koncertnye-ploshhadki/kz-minsk/");
+        List<String> unrelatedUrls = List.of(
+                "https://github.com/spring-projects/spring-boot",
+                "https://puppet-minsk.by/afisha");
+        ticketproVenueUrls.forEach(url -> ormLinkRepository.addLink(TEST_CHAT_ID, url, List.of(), List.of()));
+        unrelatedUrls.forEach(url -> ormLinkRepository.addLink(TEST_CHAT_ID, url, List.of(), List.of()));
 
-        // Act & Assert
-        assertThat(linkJpaRepository.count()).isEqualTo((long) acceptedUrls.size() + rejectedUrls.size());
-        assertThat(ormLinkRepository.countByType(LinkType.PUPPET_THEATRE)).isEqualTo((long) acceptedUrls.size());
+        // Act
+        Long ticketproLinkCount = ormLinkRepository.countByType(LinkType.TICKETPRO);
+
+        // Assert
+        assertThat(ticketproLinkCount).isEqualTo(3L);
     }
 
     @Test

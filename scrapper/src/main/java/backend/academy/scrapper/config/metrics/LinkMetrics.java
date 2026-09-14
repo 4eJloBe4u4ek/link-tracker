@@ -28,10 +28,10 @@ public class LinkMetrics {
                             LinkType.STACKOVERFLOW.name().toLowerCase(Locale.ROOT))
                     .register(meterRegistry);
 
-            Gauge.builder(ACTIVE_LINKS_GAUGE_NAME, linkOperationRepository, l -> l.countByType(LinkType.PUPPET_THEATRE))
+            Gauge.builder(ACTIVE_LINKS_GAUGE_NAME, linkOperationRepository, l -> l.countByType(LinkType.TICKETPRO))
                     .tag(
                             ACTIVE_LINKS_GAUGE_TAG_TYPE,
-                            LinkType.PUPPET_THEATRE.name().toLowerCase(Locale.ROOT))
+                            LinkType.TICKETPRO.name().toLowerCase(Locale.ROOT))
                     .register(meterRegistry);
         };
     }

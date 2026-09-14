@@ -38,6 +38,7 @@ public interface LinkJpaRepository extends JpaRepository<LinkEntity, Long> {
     @Query("SELECT COUNT(l) FROM LinkEntity l WHERE l.url LIKE 'https://stackoverflow.com/questions/%'")
     Long countStackoverflowLinks();
 
-    @Query("SELECT COUNT(l) FROM LinkEntity l WHERE l.url = 'https://puppet-minsk.by/afisha'")
-    Long countPuppetTheatreLinks();
+    @Query("SELECT COUNT(l) FROM LinkEntity l "
+            + "WHERE l.url LIKE 'https://www.ticketpro.by/koncertnye-ploshhadki/%/'")
+    Long countTicketproLinks();
 }

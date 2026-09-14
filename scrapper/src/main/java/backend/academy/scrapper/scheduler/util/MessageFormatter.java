@@ -4,7 +4,7 @@ import backend.academy.scrapper.client.github.GithubComment;
 import backend.academy.scrapper.client.github.GithubCommit;
 import backend.academy.scrapper.client.github.GithubIssue;
 import backend.academy.scrapper.client.github.GithubPullRequest;
-import backend.academy.scrapper.client.puppettheatre.PuppetTheatreSession;
+import backend.academy.scrapper.client.ticketpro.TicketproEvent;
 import backend.academy.scrapper.client.stackoverflow.StackOverflowAnswer;
 import backend.academy.scrapper.client.stackoverflow.StackOverflowComment;
 import backend.academy.scrapper.client.stackoverflow.StackOverflowQuestion;
@@ -14,10 +14,9 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class MessageFormatter {
     private static final int DEFAULT_TRUNCATE_LENGTH = 200;
-    private static final int MAX_THEATRE_SESSIONS_IN_MESSAGE = 10;
-    private static final int MAX_THEATRE_DESCRIPTION_LENGTH = 4000;
-    private static final String THEATRE_HEADER = "🎭 В продаже появились билеты в Белорусский театр кукол:\n\n";
-    private static final String THEATRE_SCHEDULE = "Афиша: https://puppet-minsk.by/afisha";
+    private static final int MAX_TICKETPRO_EVENTS_IN_MESSAGE = 10;
+    private static final int MAX_TICKETPRO_DESCRIPTION_LENGTH = 3800;
+    private static final String TICKETPRO_HEADER = "🎟 В продаже появились билеты\n\nПлощадка: %s\n\n";
 
     public static String formatGithubIssue(GithubIssue githubIssue) {
         return formatGithubMessage(
@@ -73,33 +72,40 @@ public class MessageFormatter {
                 comment.body());
     }
 
-    public static String formatPuppetTheatreTickets(List<PuppetTheatreSession> sessions) {
-        StringBuilder message = new StringBuilder(THEATRE_HEADER);
+    public static String formatTicketproEvents(String venueName, List<TicketproEvent> events) {
+        String initialTail = formatTicketproTail(events.size());
+        int maxVenueNameLength = MAX_TICKETPRO_DESCRIPTION_LENGTH
+                - TICKETPRO_HEADER.formatted("").length()
+                - initialTail.length();
+        String truncatedVenueName = truncate(venueName, Math.max(0, maxVenueNameLength));
+        StringBuilder message = new StringBuilder(TICKETPRO_HEADER.formatted(truncatedVenueName));
 
-        int sessionLimit = Math.min(sessions.size(), MAX_THEATRE_SESSIONS_IN_MESSAGE);
-        int includedSessions = 0;
-        for (int index = 0; index < sessionLimit; index++) {
-            String sessionBlock = formatPuppetTheatreSession(sessions.get(index));
-            String tail = formatPuppetTheatreTail(sessions.size() - includedSessions - 1);
-            if (message.length() + sessionBlock.length() + tail.length() > MAX_THEATRE_DESCRIPTION_LENGTH) {
+        int includedEvents = 0;
+        for (TicketproEvent event : events) {
+            if (includedEvents >= MAX_TICKETPRO_EVENTS_IN_MESSAGE) {
                 continue;
             }
-            message.append(sessionBlock);
-            includedSessions++;
+            String eventBlock = formatTicketproEvent(event);
+            String tail = formatTicketproTail(events.size() - includedEvents - 1);
+            if (message.length() + eventBlock.length() + tail.length() > MAX_TICKETPRO_DESCRIPTION_LENGTH) {
+                continue;
+            }
+            message.append(eventBlock);
+            includedEvents++;
         }
-        return message.append(formatPuppetTheatreTail(sessions.size() - includedSessions))
+        return message.append(formatTicketproTail(events.size() - includedEvents))
                 .toString();
     }
 
-    private static String formatPuppetTheatreSession(PuppetTheatreSession session) {
-        return "• " + session.title() + '\n'
-            + session.date() + (session.time().isBlank() ? "" : ", " + session.time()) + '\n'
-            + (session.price().isBlank() ? "" : session.price() + "\n")
-            + session.ticketUrl() + "\n\n";
+    private static String formatTicketproEvent(TicketproEvent event) {
+        return "• " + event.title() + '\n'
+            + event.date() + (event.time().isBlank() ? "" : ", " + event.time()) + '\n'
+            + (event.price().isBlank() ? "" : event.price() + "\n")
+            + event.ticketUrl() + "\n\n";
     }
 
-    private static String formatPuppetTheatreTail(int omittedSessions) {
-        return (omittedSessions == 0 ? "" : "И ещё новых сеансов: " + omittedSessions + "\n\n") + THEATRE_SCHEDULE;
+    private static String formatTicketproTail(int omittedEvents) {
+        return omittedEvents == 0 ? "" : "И ещё новых событий: " + omittedEvents;
     }
 
     private static String formatGithubMessage(String title, String user, String time, String description) {

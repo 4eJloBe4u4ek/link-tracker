@@ -11,15 +11,15 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
-public class PuppetTheatreSnapshotRepository {
-    private static final String KEY_PREFIX = "puppet-theatre:";
+public class TicketproSnapshotRepository {
+    private static final String KEY_PREFIX = "ticketpro:";
     private static final String SNAPSHOT_SUFFIX = ":snapshot";
-    private static final String SESSION_SEPARATOR = "\n";
+    private static final String EVENT_SEPARATOR = "\n";
     private static final Duration SNAPSHOT_TTL = Duration.ofDays(90);
 
     private final StringRedisTemplate redisTemplate;
 
-    public Optional<Set<String>> getAvailableSessionKeys(Long linkId) {
+    public Optional<Set<String>> getAvailableEventKeys(Long linkId) {
         String value = redisTemplate.opsForValue().get(snapshotKey(linkId));
         if (value == null) {
             return Optional.empty();
@@ -27,11 +27,11 @@ public class PuppetTheatreSnapshotRepository {
         if (value.isEmpty()) {
             return Optional.of(Set.of());
         }
-        return Optional.of(Arrays.stream(value.split(SESSION_SEPARATOR, -1)).collect(Collectors.toUnmodifiableSet()));
+        return Optional.of(Arrays.stream(value.split(EVENT_SEPARATOR, -1)).collect(Collectors.toUnmodifiableSet()));
     }
 
-    public void replaceAvailableSessionKeys(Long linkId, Set<String> sessionKeys) {
-        String value = String.join(SESSION_SEPARATOR, sessionKeys);
+    public void replaceAvailableEventKeys(Long linkId, Set<String> eventKeys) {
+        String value = String.join(EVENT_SEPARATOR, eventKeys);
         redisTemplate.opsForValue().set(snapshotKey(linkId), value, SNAPSHOT_TTL);
     }
 

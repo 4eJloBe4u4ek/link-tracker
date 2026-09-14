@@ -86,7 +86,8 @@ public final class TestData {
     public static final String INVALID_CHOICE_MESSAGE = "Пожалуйста, введите 1 или 2.";
     public static final String INVALID_TIME_FORMAT_MESSAGE = "Неверный формат времени";
 
-    public static final String TRACK_PROMPT_ENTER_TRACK_URL = "Укажите ссылку для отслеживания.";
+    public static final String TRACK_PROMPT_ENTER_TRACK_URL =
+            "Укажите ссылку для отслеживания.\nПримеры поддерживаемых ссылок: /sources";
     public static final String TRACK_PROMPT_ENTER_TAGS = "Введите теги через пробел (опционально - /skip):";
     public static final String TRACK_PROMPT_ENTER_FILTERS = "Введите фильтры через пробел (опционально - /skip):";
     public static final String TRACK_SUCCESS_TRACK_LINK = "Ссылка %s добавлена в отслеживание.";

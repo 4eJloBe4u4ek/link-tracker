@@ -13,6 +13,7 @@ public enum BotCommandInfo {
     LIST("/list", "Список отслеживаемых ссылок."),
     REMOVE_FILTER("/removefilter", "Удалить фильтр у отслеживаемой ссылки."),
     REMOVE_TAG("/removetag", "Удалить тег у отслеживаемой ссылки."),
+    SOURCES("/sources", "Поддерживаемые источники и примеры ссылок."),
     START("/start", "Регистрация в боте."),
     TRACK("/track", "Начать отслеживание ссылки."),
     UNTRACK("/untrack", "Прекратить отслеживание ссылки."),

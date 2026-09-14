@@ -31,7 +31,8 @@ public class TrackCommand implements TelegramCommand {
     private static final String SUCCESS_MESSAGE = "Ссылка %s добавлена в отслеживание.";
     private static final String FAILURE_MESSAGE = "Ошибка! Ссылка %s не добавлена в отслеживание.";
     private static final String ERROR_MESSAGE = "Произошла ошибка при добавлении ссылки.";
-    private static final String ENTER_URL_TO_TRACK = "Укажите ссылку для отслеживания.";
+    private static final String ENTER_URL_TO_TRACK =
+            "Укажите ссылку для отслеживания.\nПримеры поддерживаемых ссылок: /sources";
     private static final String UNKNOWN_STATE =
             "Ошибка. Пожалуйста, начните отслеживание с " + BotCommandInfo.TRACK.commandName();
 

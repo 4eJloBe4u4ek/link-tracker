@@ -5,9 +5,11 @@ import static backend.academy.bot.TestData.TELEGRAM_PARAM_TEXT;
 import static backend.academy.bot.TestData.TEST_CHAT_ID;
 import static backend.academy.bot.TestData.UNKNOWN_COMMAND_ERROR_MESSAGE;
 import static backend.academy.bot.TestData.UNKNOWN_COMMAND_INPUT;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import backend.academy.bot.command.command.SourcesCommand;
 import backend.academy.bot.dialog.DialogService;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Chat;
@@ -16,6 +18,7 @@ import com.pengrad.telegrambot.model.Update;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,5 +83,20 @@ class CommandHandlerTest {
         // Assert
         Assertions.assertNotNull(counter);
         Assertions.assertEquals(1, counter.count());
+    }
+
+    @Test
+    void shouldRegisterSourcesCommandDescription() {
+        // Arrange
+        SourcesCommand sourcesCommand = new SourcesCommand();
+        when(context.getBeansWithAnnotation(BotCommand.class))
+                .thenReturn(Map.of("sourcesCommand", sourcesCommand));
+
+        // Act
+        commandHandler.init();
+
+        // Assert
+        assertThat(commandHandler.commandDescriptions())
+                .containsEntry("/sources", "Поддерживаемые источники и примеры ссылок.");
     }
 }

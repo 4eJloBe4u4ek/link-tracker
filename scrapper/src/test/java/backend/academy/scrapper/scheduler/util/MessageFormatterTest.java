@@ -9,7 +9,7 @@ import backend.academy.scrapper.client.github.GithubCommit;
 import backend.academy.scrapper.client.github.GithubIssue;
 import backend.academy.scrapper.client.github.GithubPullRequest;
 import backend.academy.scrapper.client.github.GithubUser;
-import backend.academy.scrapper.client.puppettheatre.PuppetTheatreSession;
+import backend.academy.scrapper.client.ticketpro.TicketproEvent;
 import backend.academy.scrapper.client.stackoverflow.StackOverflowAnswer;
 import backend.academy.scrapper.client.stackoverflow.StackOverflowComment;
 import backend.academy.scrapper.client.stackoverflow.StackOverflowOwner;
@@ -162,50 +162,53 @@ class MessageFormatterTest {
     }
 
     @Test
-    void shouldFormatPuppetTheatreTicketsFromTicketpro() {
+    void shouldFormatTicketproEventsWithDynamicVenueAndAllFields() {
         // Arrange
-        PuppetTheatreSession session = new PuppetTheatreSession(
-                "Кот в сапогах",
-                "12.09.2026–13.09.2026",
-                "11:00",
-                "38–40 BYN",
-                "https://www.ticketpro.by/bilety-v-teatr/kot-v-sapogah/");
+        TicketproEvent event = new TicketproEvent(
+                "Граф Монте-Кристо",
+                "18.08.2026",
+                "19:00",
+                "от 50 BYN",
+                "https://www.ticketpro.by/bilety-v-teatr/graf-monte-kristo/");
 
         // Act
-        String result = MessageFormatter.formatPuppetTheatreTickets(List.of(session));
+        String result = MessageFormatter.formatTicketproEvents("ГУ Дворец Республики, Минск", List.of(event));
 
         // Assert
         assertThat(result)
-                .contains("Кот в сапогах")
-                .contains("12.09.2026–13.09.2026, 11:00")
-                .contains("38–40 BYN")
-                .contains(session.ticketUrl())
-                .contains("https://puppet-minsk.by/afisha");
+                .isEqualTo(
+                        "🎟 В продаже появились билеты\n\n"
+                                + "Площадка: ГУ Дворец Республики, Минск\n\n"
+                                + "• Граф Монте-Кристо\n"
+                                + "18.08.2026, 19:00\n"
+                                + "от 50 BYN\n"
+                                + "https://www.ticketpro.by/bilety-v-teatr/graf-monte-kristo/\n\n");
     }
 
     @Test
-    void shouldKeepPuppetTheatreDescriptionWithinReservedLimit() {
+    void shouldOmitBlankTicketproTimeAndPrice() {
         // Arrange
-        PuppetTheatreSession session = new PuppetTheatreSession(
-                "Я".repeat(3860),
-                "12.09.2026",
-                "11:00",
-                "38–40 BYN",
-                "https://www.ticketpro.by/bilety-v-teatr/near-limit");
+        TicketproEvent event = new TicketproEvent(
+                "Лебединое озеро",
+                "20.08.2026",
+                "",
+                "",
+                "https://www.ticketpro.by/bilety-v-teatr/lebedinoe-ozero/");
 
         // Act
-        String result = MessageFormatter.formatPuppetTheatreTickets(List.of(session));
+        String result = MessageFormatter.formatTicketproEvents("Большой театр Беларуси", List.of(event));
 
         // Assert
-        assertThat(result.length()).isLessThanOrEqualTo(4000);
-        assertThat(result).endsWith("Афиша: https://puppet-minsk.by/afisha");
+        assertThat(result)
+                .contains("• Лебединое озеро\n20.08.2026\nhttps://www.ticketpro.by/bilety-v-teatr/lebedinoe-ozero/\n\n")
+                .doesNotContain("20.08.2026,", "BYN");
     }
 
     @Test
-    void shouldKeepPuppetTheatreMessageWithinTelegramLimit() {
+    void shouldKeepTicketproDescriptionWithinReservedLimit() {
         // Arrange
-        List<PuppetTheatreSession> sessions = IntStream.range(0, 10)
-                .mapToObj(index -> new PuppetTheatreSession(
+        List<TicketproEvent> events = IntStream.range(0, 10)
+                .mapToObj(index -> new TicketproEvent(
                         "Спектакль " + index + " " + "Я".repeat(700),
                         "12.09.2026",
                         "11:00",
@@ -214,19 +217,52 @@ class MessageFormatterTest {
                 .toList();
 
         // Act
-        String result = MessageFormatter.formatPuppetTheatreTickets(sessions);
+        String result = MessageFormatter.formatTicketproEvents("ГУ Дворец Республики, Минск", events);
 
         // Assert
-        assertThat(result.length()).isLessThanOrEqualTo(4096);
-        assertThat(result).contains("И ещё новых сеансов: 7");
-        assertThat(result).endsWith("Афиша: https://puppet-minsk.by/afisha");
+        assertThat(result.length()).isLessThanOrEqualTo(3800);
+        assertThat(result).contains("И ещё новых событий: 7");
+        assertThat(result).doesNotContain("puppet-minsk.by", "Афиша:");
     }
 
     @Test
-    void shouldKeepPuppetTheatreHeaderAndTailWhenNoSessionBlockFits() {
+    void shouldKeepLongVenueDescriptionAndCompleteBotMessageWithinLimits() {
         // Arrange
-        List<PuppetTheatreSession> sessions = IntStream.range(0, 10)
-                .mapToObj(index -> new PuppetTheatreSession(
+        String venueName = "Очень длинное название площадки ".repeat(200);
+        List<TicketproEvent> events = List.of(
+                new TicketproEvent(
+                        "Граф Монте-Кристо",
+                        "18.08.2026",
+                        "19:00",
+                        "от 50 BYN",
+                        "https://www.ticketpro.by/bilety-v-teatr/graf-monte-kristo/"),
+                new TicketproEvent(
+                        "Лебединое озеро",
+                        "20.08.2026",
+                        "",
+                        "",
+                        "https://www.ticketpro.by/bilety-v-teatr/lebedinoe-ozero/"));
+
+        // Act
+        String result = MessageFormatter.formatTicketproEvents(venueName, events);
+        String completeBotMessage = "Новое обновление!\nURL: "
+                + "https://www.ticketpro.by/koncertnye-ploshhadki/dvorec-respubliki/\n"
+                + result;
+
+        // Assert
+        assertThat(result.length()).isLessThanOrEqualTo(3800);
+        assertThat(completeBotMessage.length()).isLessThanOrEqualTo(4096);
+        assertThat(result)
+                .startsWith("🎟 В продаже появились билеты\n\nПлощадка: ")
+                .doesNotContain("Граф Монте-Кристо", "Лебединое озеро")
+                .endsWith("И ещё новых событий: 2");
+    }
+
+    @Test
+    void shouldKeepTicketproHeaderAndTailWhenNoEventBlockFits() {
+        // Arrange
+        List<TicketproEvent> events = IntStream.range(0, 10)
+                .mapToObj(index -> new TicketproEvent(
                         "Спектакль " + index + " " + "Я".repeat(5000),
                         "12.09.2026",
                         "11:00",
@@ -235,18 +271,20 @@ class MessageFormatterTest {
                 .toList();
 
         // Act
-        String result = MessageFormatter.formatPuppetTheatreTickets(sessions);
+        String result = MessageFormatter.formatTicketproEvents("ГУ Дворец Республики, Минск", events);
 
         // Assert
-        assertThat(result.length()).isLessThanOrEqualTo(4096);
-        assertThat(result).contains("И ещё новых сеансов: 10").endsWith("Афиша: https://puppet-minsk.by/afisha");
+        assertThat(result.length()).isLessThanOrEqualTo(3800);
+        assertThat(result)
+                .startsWith("🎟 В продаже появились билеты\n\nПлощадка: ГУ Дворец Республики, Минск\n\n")
+                .endsWith("И ещё новых событий: 10");
     }
 
     @Test
-    void shouldLimitPuppetTheatreMessageToFirstTenSessions() {
+    void shouldLimitTicketproMessageToTenEventBlocks() {
         // Arrange
-        List<PuppetTheatreSession> sessions = IntStream.range(0, 11)
-                .mapToObj(index -> new PuppetTheatreSession(
+        List<TicketproEvent> events = IntStream.range(0, 12)
+                .mapToObj(index -> new TicketproEvent(
                         "Спектакль " + index,
                         "12.09.2026",
                         "11:00",
@@ -255,7 +293,7 @@ class MessageFormatterTest {
                 .toList();
 
         // Act
-        String result = MessageFormatter.formatPuppetTheatreTickets(sessions);
+        String result = MessageFormatter.formatTicketproEvents("ГУ Дворец Республики, Минск", events);
 
         // Assert
         assertThat(result)
@@ -271,20 +309,22 @@ class MessageFormatterTest {
                         "• Спектакль 8\n12.09.2026, 11:00\n38–40 BYN\nhttps://www.ticketpro.by/bilety-v-teatr/8\n\n",
                         "• Спектакль 9\n12.09.2026, 11:00\n38–40 BYN\nhttps://www.ticketpro.by/bilety-v-teatr/9\n\n")
                 .doesNotContain(
-                        "• Спектакль 10\n12.09.2026, 11:00\n38–40 BYN\nhttps://www.ticketpro.by/bilety-v-teatr/10\n\n")
-                .contains("И ещё новых сеансов: 1\n\nАфиша: https://puppet-minsk.by/afisha");
+                        "• Спектакль 10\n12.09.2026, 11:00\n38–40 BYN\nhttps://www.ticketpro.by/bilety-v-teatr/10\n\n",
+                        "• Спектакль 11\n12.09.2026, 11:00\n38–40 BYN\nhttps://www.ticketpro.by/bilety-v-teatr/11\n\n")
+                .endsWith("И ещё новых событий: 2");
+        assertThat(result.split("• ", -1).length - 1).isEqualTo(10);
     }
 
     @Test
-    void shouldKeepShortPuppetTheatreSessionAfterLongOneDoesNotFit() {
+    void shouldKeepShortTicketproEventAfterLongEventDoesNotFit() {
         // Arrange
-        PuppetTheatreSession longSession = new PuppetTheatreSession(
+        TicketproEvent longEvent = new TicketproEvent(
                 "Длинный спектакль " + "Я".repeat(5000),
                 "12.09.2026",
                 "11:00",
                 "38–40 BYN",
                 "https://www.ticketpro.by/bilety-v-teatr/long");
-        PuppetTheatreSession shortSession = new PuppetTheatreSession(
+        TicketproEvent shortEvent = new TicketproEvent(
                 "Короткий спектакль",
                 "12.09.2026",
                 "11:00",
@@ -292,14 +332,14 @@ class MessageFormatterTest {
                 "https://www.ticketpro.by/bilety-v-teatr/short");
 
         // Act
-        String result = MessageFormatter.formatPuppetTheatreTickets(List.of(longSession, shortSession));
+        String result = MessageFormatter.formatTicketproEvents(
+                "ГУ Дворец Республики, Минск", List.of(longEvent, shortEvent));
 
         // Assert
-        assertThat(result.length()).isLessThanOrEqualTo(4096);
+        assertThat(result.length()).isLessThanOrEqualTo(3800);
         assertThat(result)
-                .contains(shortSession.title())
-                .doesNotContain(longSession.title())
-                .contains("И ещё новых сеансов: 1")
-                .endsWith("Афиша: https://puppet-minsk.by/afisha");
+                .contains(shortEvent.title())
+                .doesNotContain(longEvent.title())
+                .endsWith("И ещё новых событий: 1");
     }
 }

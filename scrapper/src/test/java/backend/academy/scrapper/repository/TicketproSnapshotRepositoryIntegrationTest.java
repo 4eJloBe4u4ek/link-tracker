@@ -3,6 +3,8 @@ package backend.academy.scrapper.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
@@ -17,14 +19,14 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 @Testcontainers
-class PuppetTheatreSnapshotRepositoryIntegrationTest {
+class TicketproSnapshotRepositoryIntegrationTest {
     @Container
     static final GenericContainer<?> REDIS =
             new GenericContainer<>(DockerImageName.parse("redis:7-alpine")).withExposedPorts(6379);
 
     private LettuceConnectionFactory connectionFactory;
     private StringRedisTemplate redisTemplate;
-    private PuppetTheatreSnapshotRepository repository;
+    private TicketproSnapshotRepository repository;
 
     @BeforeEach
     void setUp() {
@@ -35,7 +37,7 @@ class PuppetTheatreSnapshotRepositoryIntegrationTest {
         redisTemplate = new StringRedisTemplate(connectionFactory);
         redisTemplate.afterPropertiesSet();
         redisTemplate.getConnectionFactory().getConnection().serverCommands().flushAll();
-        repository = new PuppetTheatreSnapshotRepository(redisTemplate);
+        repository = new TicketproSnapshotRepository(redisTemplate);
     }
 
     @AfterEach
@@ -45,28 +47,37 @@ class PuppetTheatreSnapshotRepositoryIntegrationTest {
 
     @Test
     void shouldStoreAndReplaceSnapshotsAsSingleStringValues() {
-        // Arrange & Assert
-        assertThat(repository.getAvailableSessionKeys(42L)).isEqualTo(Optional.empty());
+        // Arrange
+        String snapshotKey = "ticketpro:42:snapshot";
 
         // Act
-        repository.replaceAvailableSessionKeys(42L, Set.of());
+        Optional<Set<String>> missingSnapshot = repository.getAvailableEventKeys(42L);
 
         // Assert
-        assertThat(repository.getAvailableSessionKeys(42L)).contains(Set.of());
-
-        Long ttl = redisTemplate.getExpire("puppet-theatre:42:snapshot");
-        assertThat(ttl).isGreaterThan(0).isLessThanOrEqualTo(Duration.ofDays(90).toSeconds());
+        assertThat(missingSnapshot).isEqualTo(Optional.empty());
 
         // Act
-        repository.replaceAvailableSessionKeys(42L, Set.of("session-1", "session-2"));
+        repository.replaceAvailableEventKeys(42L, Set.of());
 
         // Assert
-        assertThat(repository.getAvailableSessionKeys(42L)).contains(Set.of("session-1", "session-2"));
+        assertThat(repository.getAvailableEventKeys(42L)).contains(Set.of());
+        assertThat(redisTemplate.hasKey(snapshotKey)).isTrue();
+        assertThat(redisTemplate.opsForValue().get(snapshotKey)).isEmpty();
+        Long ttl = redisTemplate.getExpire(snapshotKey);
+        assertThat(ttl)
+                .isBetween(Duration.ofDays(90).minusSeconds(5).toSeconds(), Duration.ofDays(90).toSeconds());
 
         // Act
-        repository.replaceAvailableSessionKeys(42L, Set.of("session-3"));
+        repository.replaceAvailableEventKeys(42L, new LinkedHashSet<>(List.of("event-1", "event-2")));
 
         // Assert
-        assertThat(repository.getAvailableSessionKeys(42L)).contains(Set.of("session-3"));
+        assertThat(repository.getAvailableEventKeys(42L)).contains(Set.of("event-1", "event-2"));
+        assertThat(redisTemplate.opsForValue().get(snapshotKey)).isEqualTo("event-1\nevent-2");
+
+        // Act
+        repository.replaceAvailableEventKeys(42L, Set.of("event-3"));
+
+        // Assert
+        assertThat(repository.getAvailableEventKeys(42L)).contains(Set.of("event-3"));
     }
 }

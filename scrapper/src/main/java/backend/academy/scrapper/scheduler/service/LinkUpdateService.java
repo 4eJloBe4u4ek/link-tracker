@@ -3,7 +3,7 @@ package backend.academy.scrapper.scheduler.service;
 import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.scrapper.repository.LinkOperationRepository;
 import backend.academy.scrapper.scheduler.handler.GithubUpdateHandler;
-import backend.academy.scrapper.scheduler.handler.PuppetTheatreUpdateHandler;
+import backend.academy.scrapper.scheduler.handler.TicketproUpdateHandler;
 import backend.academy.scrapper.scheduler.handler.StackOverflowUpdateHandler;
 import backend.academy.scrapper.service.LinkTypeResolver;
 import backend.academy.shared.dto.LinkType;
@@ -26,7 +26,7 @@ public class LinkUpdateService {
     private final LinkOperationRepository linkOperationRepository;
     private final GithubUpdateHandler githubHandler;
     private final StackOverflowUpdateHandler stackoverflowHandler;
-    private final PuppetTheatreUpdateHandler puppetTheatreHandler;
+    private final TicketproUpdateHandler ticketproHandler;
     private final LinkTypeResolver linkTypeResolver;
     private final ExecutorService executorService;
 
@@ -35,13 +35,13 @@ public class LinkUpdateService {
             LinkOperationRepository linkOperationRepository,
             GithubUpdateHandler githubHandler,
             StackOverflowUpdateHandler stackoverflowHandler,
-            PuppetTheatreUpdateHandler puppetTheatreHandler,
+            TicketproUpdateHandler ticketproHandler,
             LinkTypeResolver linkTypeResolver) {
         this.scrapperConfig = scrapperConfig;
         this.linkOperationRepository = linkOperationRepository;
         this.githubHandler = githubHandler;
         this.stackoverflowHandler = stackoverflowHandler;
-        this.puppetTheatreHandler = puppetTheatreHandler;
+        this.ticketproHandler = ticketproHandler;
         this.linkTypeResolver = linkTypeResolver;
         this.executorService =
                 Executors.newFixedThreadPool(scrapperConfig.scheduler().threadCount());
@@ -49,7 +49,7 @@ public class LinkUpdateService {
 
     public void checkForUpdates() {
         int page = 0;
-        int chunkSize = scrapperConfig.batchSize() / scrapperConfig.scheduler().threadCount();
+        int chunkSize = Math.max(1, scrapperConfig.batchSize() / scrapperConfig.scheduler().threadCount());
         List<TrackedLink> trackedLinks;
         do {
             trackedLinks = linkOperationRepository.getAllLinks(page++);
@@ -63,33 +63,55 @@ public class LinkUpdateService {
         List<List<TrackedLink>> partitions = partition(trackedLinks, chunkSize);
 
         List<CompletableFuture<Void>> futures = partitions.stream()
-                .map(subList ->
-                        CompletableFuture.runAsync(() -> subList.forEach(this::checkLinkUpdates), executorService))
+                .map(subList -> CompletableFuture.runAsync(
+                        () -> CompletableFuture.allOf(subList.stream()
+                                        .map(this::checkLinkUpdates)
+                                        .toArray(CompletableFuture[]::new))
+                                .join(),
+                        executorService))
                 .toList();
 
         CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
     }
 
-    private void checkLinkUpdates(TrackedLink trackedLink) {
-        String url = trackedLink.url();
-        Optional<LinkType> linkType = linkTypeResolver.resolve(url);
-        if (linkType.isEmpty()) {
-            log.atWarn()
-                    .setMessage("Unknown url pattern, skipping link")
-                    .addKeyValue("url", url)
-                    .log();
-            return;
+    private CompletableFuture<Void> checkLinkUpdates(TrackedLink trackedLink) {
+        try {
+            String url = trackedLink.url();
+            Optional<LinkType> linkType = linkTypeResolver.resolve(url);
+            if (linkType.isEmpty()) {
+                log.atWarn()
+                        .setMessage("Unknown url pattern, skipping link")
+                        .addKeyValue("url", url)
+                        .log();
+                return CompletableFuture.completedFuture(null);
+            }
+
+            CompletableFuture<Void> updateFuture =
+                    switch (linkType.orElseThrow()) {
+                        case GITHUB -> githubHandler.handle(trackedLink);
+                        case STACKOVERFLOW -> stackoverflowHandler.handle(trackedLink);
+                        case TICKETPRO -> ticketproHandler.handle(trackedLink);
+                    };
+
+            return updateFuture
+                    .thenRun(() -> linkOperationRepository.updateLastCheckedTime(
+                            trackedLink, LocalDateTime.now(ZoneId.systemDefault())))
+                    .exceptionally(error -> {
+                        logUpdateFailure(trackedLink, error);
+                        return null;
+                    });
+        } catch (RuntimeException error) {
+            logUpdateFailure(trackedLink, error);
+            return CompletableFuture.completedFuture(null);
         }
+    }
 
-        CompletableFuture<Void> updateFuture =
-                switch (linkType.orElseThrow()) {
-                    case GITHUB -> githubHandler.handle(trackedLink);
-                    case STACKOVERFLOW -> stackoverflowHandler.handle(trackedLink);
-                    case PUPPET_THEATRE -> puppetTheatreHandler.handle(trackedLink);
-                };
-
-        updateFuture.thenRun(() ->
-                linkOperationRepository.updateLastCheckedTime(trackedLink, LocalDateTime.now(ZoneId.systemDefault())));
+    private void logUpdateFailure(TrackedLink trackedLink, Throwable error) {
+        log.atError()
+                .setMessage("Failed to update tracked link")
+                .addKeyValue("url", trackedLink.url())
+                .setCause(error)
+                .log();
     }
 
     private List<List<TrackedLink>> partition(List<TrackedLink> list, int size) {

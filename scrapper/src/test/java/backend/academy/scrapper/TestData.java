@@ -12,7 +12,7 @@ public class TestData {
     public static final String TEST_URL = "https://example.com";
     public static final String GITHUB_URL = "https://github.com/owner/repo";
     public static final String STACKOVERFLOW_URL = "https://stackoverflow.com/questions";
-    public static final String PUPPET_THEATRE_URL = "https://puppet-minsk.by/afisha";
+    public static final String TICKETPRO_URL = "https://www.ticketpro.by/koncertnye-ploshhadki/dvorec-respubliki/";
 
     public static final String GITHUB_OWNER = "owner";
     public static final String GITHUB_REPO = "repo";
@@ -195,9 +195,9 @@ public class TestData {
             LocalDateTime.parse(TEST_TIME),
             LocalDateTime.parse(TEST_TIME));
 
-    public static final TrackedLink PUPPET_THEATRE_TRACKED_LINK = new TrackedLink(
+    public static final TrackedLink TICKETPRO_TRACKED_LINK = new TrackedLink(
             2L,
-            PUPPET_THEATRE_URL,
+            TICKETPRO_URL,
             List.of(TEST_TAG),
             List.of(),
             LocalDateTime.parse(TEST_TIME),

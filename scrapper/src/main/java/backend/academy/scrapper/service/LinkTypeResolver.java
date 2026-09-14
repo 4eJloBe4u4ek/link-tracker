@@ -1,7 +1,7 @@
 package backend.academy.scrapper.service;
 
 import backend.academy.scrapper.scheduler.handler.GithubUpdateHandler;
-import backend.academy.scrapper.scheduler.handler.PuppetTheatreUpdateHandler;
+import backend.academy.scrapper.scheduler.handler.TicketproUpdateHandler;
 import backend.academy.scrapper.scheduler.handler.StackOverflowUpdateHandler;
 import backend.academy.shared.dto.LinkType;
 import java.util.Optional;
@@ -10,14 +10,17 @@ import org.springframework.stereotype.Component;
 @Component
 public class LinkTypeResolver {
     public Optional<LinkType> resolve(String url) {
+        if (url == null) {
+            return Optional.empty();
+        }
         if (GithubUpdateHandler.isGithubLink(url)) {
             return Optional.of(LinkType.GITHUB);
         }
         if (StackOverflowUpdateHandler.isStackoverflowLink(url)) {
             return Optional.of(LinkType.STACKOVERFLOW);
         }
-        if (PuppetTheatreUpdateHandler.isPuppetTheatreLink(url)) {
-            return Optional.of(LinkType.PUPPET_THEATRE);
+        if (TicketproUpdateHandler.isTicketproLink(url)) {
+            return Optional.of(LinkType.TICKETPRO);
         }
         return Optional.empty();
     }

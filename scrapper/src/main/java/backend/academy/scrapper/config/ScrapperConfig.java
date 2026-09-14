@@ -19,7 +19,7 @@ public record ScrapperConfig(
         @Bean Scheduler scheduler,
         GithubCredentials github,
         StackOverflowCredentials stackOverflow,
-        @Valid @NotNull PuppetTheatre puppetTheatre,
+        @Valid @NotNull Ticketpro ticketpro,
         UpdateEvents updateEvents) {
 
     public enum AccessType {
@@ -50,7 +50,7 @@ public record ScrapperConfig(
         }
     }
 
-    public record PuppetTheatre(@NotEmpty String ticketproBaseUrl, @NotEmpty String venuePath) {}
+    public record Ticketpro(@NotEmpty String baseUrl) {}
 
     public record UpdateEvents(
             @NotEmpty String topic, @NotEmpty String dlqTopic, @Positive int partitions, @Positive short replicas) {
