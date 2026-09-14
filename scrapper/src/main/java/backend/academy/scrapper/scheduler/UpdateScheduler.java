@@ -1,5 +1,6 @@
 package backend.academy.scrapper.scheduler;
 
+import backend.academy.scrapper.monitoring.HealthchecksClient;
 import backend.academy.scrapper.scheduler.service.LinkUpdateService;
 import backend.academy.scrapper.scheduler.service.NotificationService;
 import lombok.RequiredArgsConstructor;
@@ -13,11 +14,13 @@ import org.springframework.stereotype.Service;
 public class UpdateScheduler {
     private final LinkUpdateService linkUpdateService;
     private final NotificationService notificationService;
+    private final HealthchecksClient healthchecksClient;
 
     @Scheduled(fixedDelayString = "#{scheduler.interval()}")
     public void checkUpdates() {
         log.info("Checking updates...");
         linkUpdateService.checkForUpdates();
+        healthchecksClient.pingScrapper();
         log.info("Finished checking updates");
     }
 

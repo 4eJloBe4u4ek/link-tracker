@@ -20,6 +20,10 @@ app:
     partitions: 1
     replicas: 1
 
+monitoring:
+  scrapper-ping-url: ${HEALTHCHECKS_SCRAPPER_PING_URL:}
+  ticketpro-ping-url: ${HEALTHCHECKS_TICKETPRO_PING_URL:}
+
 spring:
   application:
     name: Scrapper

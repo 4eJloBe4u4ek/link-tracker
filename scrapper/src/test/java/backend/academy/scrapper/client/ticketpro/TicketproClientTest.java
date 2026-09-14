@@ -16,8 +16,13 @@ import backend.academy.scrapper.config.ScrapperConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import java.net.URI;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -26,12 +31,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 class TicketproClientTest {
     private static final String VENUE_PATH = "/venue/ticketpro/";
+    private static final Instant NOW = Instant.parse("2026-08-10T15:00:00Z");
 
     @RegisterExtension
     static WireMockExtension wireMock = WireMockExtension.newInstance()
@@ -39,12 +44,96 @@ class TicketproClientTest {
             .build();
 
     private TicketproClient client;
+    private MutableClock clock;
 
     @BeforeEach
     void setUp() {
         ScrapperConfig.Ticketpro ticketpro = new ScrapperConfig.Ticketpro(wireMock.baseUrl());
         ScrapperConfig config = new ScrapperConfig(null, null, 100, null, null, null, ticketpro, null);
-        client = new TicketproClient(config, new TicketproEventParser(config, new ObjectMapper()));
+        clock = new MutableClock(NOW);
+        client = new TicketproClient(
+                config, new TicketproEventParser(config, new ObjectMapper()), clock, Duration.ofSeconds(15));
+    }
+
+    @Test
+    void shouldBackOffForFifteenMinutesAfterForbiddenResponse() {
+        wireMock.stubFor(get(urlEqualTo(VENUE_PATH)).willReturn(aResponse().withStatus(403)));
+
+        verifyFailureResult(client.getAvailableEvents(venueUrl()), TicketproCheckResult.FORBIDDEN);
+        verifyFailureResult(client.getAvailableEvents(venueUrl()), TicketproCheckResult.FORBIDDEN);
+        wireMock.verify(1, getRequestedFor(urlEqualTo(VENUE_PATH)));
+        clock.advance(Duration.ofMinutes(15));
+        verifyFailureResult(client.getAvailableEvents(venueUrl()), TicketproCheckResult.FORBIDDEN);
+        wireMock.verify(2, getRequestedFor(urlEqualTo(VENUE_PATH)));
+    }
+
+    @Test
+    void shouldHonorRetryAfterSeconds() {
+        wireMock.stubFor(get(urlEqualTo(VENUE_PATH))
+                .willReturn(aResponse().withStatus(429).withHeader(HttpHeaders.RETRY_AFTER, "120")));
+
+        verifyFailureResult(client.getAvailableEvents(venueUrl()), TicketproCheckResult.RATE_LIMITED);
+        clock.advance(Duration.ofSeconds(119));
+        verifyFailureResult(client.getAvailableEvents(venueUrl()), TicketproCheckResult.RATE_LIMITED);
+        wireMock.verify(1, getRequestedFor(urlEqualTo(VENUE_PATH)));
+        clock.advance(Duration.ofSeconds(1));
+        verifyFailureResult(client.getAvailableEvents(venueUrl()), TicketproCheckResult.RATE_LIMITED);
+        wireMock.verify(2, getRequestedFor(urlEqualTo(VENUE_PATH)));
+    }
+
+    @Test
+    void shouldHonorRetryAfterHttpDateAndCapAtOneHour() {
+        String retryAfter = DateTimeFormatter.RFC_1123_DATE_TIME.format(
+                ZonedDateTime.ofInstant(NOW.plus(Duration.ofHours(2)), ZoneId.of("GMT")));
+        wireMock.stubFor(get(urlEqualTo(VENUE_PATH))
+                .willReturn(aResponse().withStatus(429).withHeader(HttpHeaders.RETRY_AFTER, retryAfter)));
+
+        verifyFailureResult(client.getAvailableEvents(venueUrl()), TicketproCheckResult.RATE_LIMITED);
+        clock.advance(Duration.ofHours(1).minusSeconds(1));
+        verifyFailureResult(client.getAvailableEvents(venueUrl()), TicketproCheckResult.RATE_LIMITED);
+        wireMock.verify(1, getRequestedFor(urlEqualTo(VENUE_PATH)));
+        clock.advance(Duration.ofSeconds(1));
+        verifyFailureResult(client.getAvailableEvents(venueUrl()), TicketproCheckResult.RATE_LIMITED);
+        wireMock.verify(2, getRequestedFor(urlEqualTo(VENUE_PATH)));
+    }
+
+    @Test
+    void shouldBackOffAfterAntiBotChallenge() {
+        stubVenuePage("<div>Protected by Anubis</div>");
+
+        verifyFailureResult(client.getAvailableEvents(venueUrl()), TicketproCheckResult.ANTIBOT);
+        verifyFailureResult(client.getAvailableEvents(venueUrl()), TicketproCheckResult.ANTIBOT);
+        wireMock.verify(1, getRequestedFor(urlEqualTo(VENUE_PATH)));
+        clock.advance(Duration.ofMinutes(15));
+        verifyFailureResult(client.getAvailableEvents(venueUrl()), TicketproCheckResult.ANTIBOT);
+        wireMock.verify(2, getRequestedFor(urlEqualTo(VENUE_PATH)));
+    }
+
+    @Test
+    void shouldClassifyRequestTimeout() {
+        wireMock.stubFor(get(urlEqualTo(VENUE_PATH))
+                .willReturn(aResponse()
+                        .withFixedDelay(500)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_HTML_VALUE)
+                        .withBody("<html><body><h1>Venue</h1></body></html>")));
+        ScrapperConfig.Ticketpro ticketpro = new ScrapperConfig.Ticketpro(wireMock.baseUrl());
+        ScrapperConfig config = new ScrapperConfig(null, null, 100, null, null, null, ticketpro, null);
+        TicketproClient shortTimeoutClient = new TicketproClient(
+                config, new TicketproEventParser(config, new ObjectMapper()), clock, Duration.ofMillis(100));
+
+        verifyFailureResult(shortTimeoutClient.getAvailableEvents(venueUrl()), TicketproCheckResult.TIMEOUT);
+    }
+
+    @Test
+    void shouldClassifyNetworkFailure() {
+        ScrapperConfig.Ticketpro ticketpro = new ScrapperConfig.Ticketpro("http://127.0.0.1:1");
+        ScrapperConfig config = new ScrapperConfig(null, null, 100, null, null, null, ticketpro, null);
+        TicketproClient unavailableClient = new TicketproClient(
+                config, new TicketproEventParser(config, new ObjectMapper()), clock, Duration.ofSeconds(2));
+
+        verifyFailureResult(
+                unavailableClient.getAvailableEvents("http://127.0.0.1:1/venue/"),
+                TicketproCheckResult.NETWORK_ERROR);
     }
 
     @Test
@@ -200,7 +289,8 @@ class TicketproClientTest {
 
         // Assert
         StepVerifier.create(result)
-                .expectError(WebClientResponseException.class)
+                .expectErrorMatches(error -> error instanceof TicketproException ticketproException
+                        && ticketproException.result() == TicketproCheckResult.NETWORK_ERROR)
                 .verify();
     }
 
@@ -233,7 +323,8 @@ class TicketproClientTest {
 
         // Assert
         StepVerifier.create(result)
-                .expectErrorMatches(error -> error instanceof IllegalStateException
+                .expectErrorMatches(error -> error instanceof TicketproException ticketproException
+                        && ticketproException.result() == TicketproCheckResult.PARSE_ERROR
                         && error.getMessage().contains("no heading"))
                 .verify();
     }
@@ -248,7 +339,8 @@ class TicketproClientTest {
 
         // Assert
         StepVerifier.create(result)
-                .expectErrorMatches(error -> error instanceof IllegalStateException
+                .expectErrorMatches(error -> error instanceof TicketproException ticketproException
+                        && ticketproException.result() == TicketproCheckResult.INVALID_CONTENT
                         && error.getMessage().contains("empty HTML"))
                 .verify();
     }
@@ -266,7 +358,8 @@ class TicketproClientTest {
 
         // Assert
         StepVerifier.create(result)
-                .expectErrorMatches(error -> error instanceof IllegalStateException
+                .expectErrorMatches(error -> error instanceof TicketproException ticketproException
+                        && ticketproException.result() == TicketproCheckResult.INVALID_CONTENT
                         && error.getMessage().contains("non-HTML"))
                 .verify();
     }
@@ -286,7 +379,8 @@ class TicketproClientTest {
 
         // Assert
         StepVerifier.create(result)
-                .expectErrorMatches(error -> error instanceof IllegalStateException
+                .expectErrorMatches(error -> error instanceof TicketproException ticketproException
+                        && ticketproException.result() == TicketproCheckResult.PARSE_ERROR
                         && error.getMessage().contains("unexpected origin"))
                 .verify();
     }
@@ -326,14 +420,15 @@ class TicketproClientTest {
 
         // Assert
         StepVerifier.create(result)
-                .expectErrorMatches(error -> error instanceof IllegalStateException
+                .expectErrorMatches(error -> error instanceof TicketproException ticketproException
+                        && ticketproException.result() == TicketproCheckResult.PARSE_ERROR
                         && error.getMessage().equals("Ticketpro venue name differs between pages"))
                 .verify();
     }
 
     @ParameterizedTest
     @ValueSource(ints = {403, 404, 429, 500})
-    void shouldPropagateTicketproHttpStatus(int status) {
+    void shouldClassifyTicketproHttpStatus(int status) {
         // Arrange
         wireMock.stubFor(get(urlEqualTo(VENUE_PATH)).willReturn(aResponse().withStatus(status)));
 
@@ -343,11 +438,14 @@ class TicketproClientTest {
         // Assert
         StepVerifier.create(result)
                 .expectErrorSatisfies(error -> {
-                    assertThat(error).isInstanceOf(WebClientResponseException.class);
-                    assertThat(((WebClientResponseException) error)
-                                    .getStatusCode()
-                                    .value())
-                            .isEqualTo(status);
+                    assertThat(error).isInstanceOf(TicketproException.class);
+                    TicketproCheckResult expected = switch (status) {
+                        case 403 -> TicketproCheckResult.FORBIDDEN;
+                        case 429 -> TicketproCheckResult.RATE_LIMITED;
+                        case 500 -> TicketproCheckResult.NETWORK_ERROR;
+                        default -> TicketproCheckResult.INVALID_CONTENT;
+                    };
+                    assertThat(((TicketproException) error).result()).isEqualTo(expected);
                 })
                 .verify();
     }
@@ -365,7 +463,7 @@ class TicketproClientTest {
         Mono<TicketproVenue> result = client.getAvailableEvents(venueUrl());
 
         // Assert
-        StepVerifier.create(result).expectError(TimeoutException.class).verify();
+        verifyFailureResult(result, TicketproCheckResult.TIMEOUT);
     }
 
     @Test
@@ -381,7 +479,9 @@ class TicketproClientTest {
 
         // Assert
         StepVerifier.create(result)
-                .expectErrorMatches(error -> hasCause(error, DataBufferLimitException.class))
+                .expectErrorMatches(error -> error instanceof TicketproException ticketproException
+                        && ticketproException.result() == TicketproCheckResult.INVALID_CONTENT
+                        && hasCause(error, DataBufferLimitException.class))
                 .verify();
     }
 
@@ -537,5 +637,41 @@ class TicketproClientTest {
         }
         """
                 .formatted(url, title, startDate, endDate);
+    }
+
+    private void verifyFailureResult(Mono<TicketproVenue> result, TicketproCheckResult expectedResult) {
+        StepVerifier.create(result)
+                .expectErrorSatisfies(error -> {
+                    assertThat(error).isInstanceOf(TicketproException.class);
+                    assertThat(((TicketproException) error).result()).isEqualTo(expectedResult);
+                })
+                .verify();
+    }
+
+    private static final class MutableClock extends Clock {
+        private Instant instant;
+
+        private MutableClock(Instant instant) {
+            this.instant = instant;
+        }
+
+        private void advance(Duration duration) {
+            instant = instant.plus(duration);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneId.of("UTC");
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
+        }
     }
 }

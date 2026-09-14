@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import backend.academy.scrapper.config.ScrapperConfig;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatchers;
@@ -32,7 +33,7 @@ class MainUpdateSenderTest {
     void shouldUseHttpWhenConfiguredAsHttp() {
         // Arrange
         when(config.messageTransport()).thenReturn(ScrapperConfig.MessageTransport.HTTP);
-        mainUpdateSender = new MainUpdateSender(config, httpUpdateSender, kafkaUpdateSender);
+        mainUpdateSender = new MainUpdateSender(config, httpUpdateSender, Optional.of(kafkaUpdateSender));
         when(httpUpdateSender.sendUpdate(LINK_UPDATE)).thenReturn(Mono.empty());
 
         // Act & Assert
@@ -45,7 +46,7 @@ class MainUpdateSenderTest {
     void shouldUseKafkaWhenConfiguredAsKafka() {
         // Arrange
         when(config.messageTransport()).thenReturn(ScrapperConfig.MessageTransport.KAFKA);
-        mainUpdateSender = new MainUpdateSender(config, httpUpdateSender, kafkaUpdateSender);
+        mainUpdateSender = new MainUpdateSender(config, httpUpdateSender, Optional.of(kafkaUpdateSender));
         when(kafkaUpdateSender.sendUpdate(LINK_UPDATE)).thenReturn(Mono.empty());
 
         // Act & Assert
@@ -58,7 +59,7 @@ class MainUpdateSenderTest {
     void shouldFallbackToKafkaOnHttpError() {
         // Arrange
         when(config.messageTransport()).thenReturn(ScrapperConfig.MessageTransport.HTTP);
-        mainUpdateSender = new MainUpdateSender(config, httpUpdateSender, kafkaUpdateSender);
+        mainUpdateSender = new MainUpdateSender(config, httpUpdateSender, Optional.of(kafkaUpdateSender));
         when(httpUpdateSender.sendUpdate(LINK_UPDATE))
                 .thenReturn(Mono.error(new RuntimeException("Exception message")));
         when(kafkaUpdateSender.sendUpdate(LINK_UPDATE)).thenReturn(Mono.empty());
@@ -73,7 +74,7 @@ class MainUpdateSenderTest {
     void shouldFallbackToHttpOnKafkaError() {
         // Arrange
         when(config.messageTransport()).thenReturn(ScrapperConfig.MessageTransport.KAFKA);
-        mainUpdateSender = new MainUpdateSender(config, httpUpdateSender, kafkaUpdateSender);
+        mainUpdateSender = new MainUpdateSender(config, httpUpdateSender, Optional.of(kafkaUpdateSender));
         when(kafkaUpdateSender.sendUpdate(LINK_UPDATE))
                 .thenReturn(Mono.error(new RuntimeException("Exception message")));
         when(httpUpdateSender.sendUpdate(LINK_UPDATE)).thenReturn(Mono.empty());
@@ -82,5 +83,21 @@ class MainUpdateSenderTest {
         StepVerifier.create(mainUpdateSender.sendUpdate(LINK_UPDATE)).verifyComplete();
         verify(kafkaUpdateSender, times(1)).sendUpdate(LINK_UPDATE);
         verify(httpUpdateSender, times(1)).sendUpdate(LINK_UPDATE);
+    }
+
+    @Test
+    void shouldPropagateHttpErrorWhenKafkaIsDisabled() {
+        // Arrange
+        when(config.messageTransport()).thenReturn(ScrapperConfig.MessageTransport.HTTP);
+        mainUpdateSender = new MainUpdateSender(config, httpUpdateSender, Optional.empty());
+        when(httpUpdateSender.sendUpdate(LINK_UPDATE))
+                .thenReturn(Mono.error(new RuntimeException("Exception message")));
+
+        // Act & Assert
+        StepVerifier.create(mainUpdateSender.sendUpdate(LINK_UPDATE))
+                .expectErrorMessage("Exception message")
+                .verify();
+        verify(httpUpdateSender, times(1)).sendUpdate(LINK_UPDATE);
+        verify(kafkaUpdateSender, never()).sendUpdate(ArgumentMatchers.any());
     }
 }

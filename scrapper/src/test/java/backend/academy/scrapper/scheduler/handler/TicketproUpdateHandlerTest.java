@@ -5,19 +5,25 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import backend.academy.scrapper.client.ticketpro.TicketproClient;
+import backend.academy.scrapper.client.ticketpro.TicketproCheckResult;
 import backend.academy.scrapper.client.ticketpro.TicketproEvent;
+import backend.academy.scrapper.client.ticketpro.TicketproException;
 import backend.academy.scrapper.client.ticketpro.TicketproVenue;
+import backend.academy.scrapper.monitoring.HealthchecksClient;
+import backend.academy.scrapper.monitoring.TicketproMetrics;
 import backend.academy.scrapper.repository.TicketproSnapshotRepository;
 import backend.academy.scrapper.scheduler.service.NotificationService;
 import backend.academy.shared.dto.TrackedLink;
@@ -80,13 +86,92 @@ class TicketproUpdateHandlerTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private TicketproMetrics ticketproMetrics;
+
+    @Mock
+    private HealthchecksClient healthchecksClient;
+
     private SimpleMeterRegistry meterRegistry;
     private TicketproUpdateHandler handler;
 
     @BeforeEach
     void setUp() {
         meterRegistry = new SimpleMeterRegistry();
-        handler = new TicketproUpdateHandler(client, snapshotRepository, notificationService, meterRegistry);
+        handler = new TicketproUpdateHandler(
+                client,
+                snapshotRepository,
+                notificationService,
+                meterRegistry,
+                ticketproMetrics,
+                healthchecksClient);
+    }
+
+    @Test
+    void shouldSkipOverlappingCheckForTheSameVenue() {
+        Sinks.One<TicketproVenue> firstCheck = Sinks.one();
+        when(client.getAvailableEvents(DVORETS_TRACKED_LINK.url())).thenReturn(firstCheck.asMono());
+
+        CompletableFuture<Void> activeCheck = handler.handle(DVORETS_TRACKED_LINK);
+        CompletableFuture<Void> overlappingCheck = handler.handle(DVORETS_TRACKED_LINK);
+
+        assertFalse(activeCheck.isDone());
+        assertTrue(overlappingCheck.isDone());
+        verify(client).getAvailableEvents(DVORETS_TRACKED_LINK.url());
+        firstCheck.tryEmitError(new TicketproException(TicketproCheckResult.NETWORK_ERROR, "request failed"));
+    }
+
+    @Test
+    void shouldAllowConcurrentChecksForDifferentVenues() {
+        Sinks.One<TicketproVenue> firstCheck = Sinks.one();
+        when(client.getAvailableEvents(DVORETS_TRACKED_LINK.url())).thenReturn(firstCheck.asMono());
+        when(client.getAvailableEvents(KZ_MINSK_TRACKED_LINK.url()))
+                .thenReturn(Mono.just(venue("КЗ Минск", List.of())));
+        when(snapshotRepository.getAvailableEventKeys(KZ_MINSK_TRACKED_LINK.id()))
+                .thenReturn(Optional.empty());
+
+        CompletableFuture<Void> activeCheck = handler.handle(DVORETS_TRACKED_LINK);
+        handler.handle(KZ_MINSK_TRACKED_LINK).join();
+
+        assertFalse(activeCheck.isDone());
+        verify(client).getAvailableEvents(DVORETS_TRACKED_LINK.url());
+        verify(client).getAvailableEvents(KZ_MINSK_TRACKED_LINK.url());
+        firstCheck.tryEmitError(new TicketproException(TicketproCheckResult.NETWORK_ERROR, "request failed"));
+    }
+
+    @Test
+    void shouldRecordClassifiedFailureWithoutConfirmingTicketpro() {
+        when(client.getAvailableEvents(DVORETS_TRACKED_LINK.url()))
+                .thenReturn(Mono.error(new TicketproException(TicketproCheckResult.FORBIDDEN, "forbidden")));
+
+        assertThrows(CompletionException.class, () -> handler.handle(DVORETS_TRACKED_LINK).join());
+
+        verify(ticketproMetrics).recordFailure(TicketproCheckResult.FORBIDDEN);
+        verify(healthchecksClient, never()).pingTicketpro();
+    }
+
+    @Test
+    void shouldNotCountOrConfirmRequestSkippedDuringBackoff() {
+        when(client.getAvailableEvents(DVORETS_TRACKED_LINK.url()))
+                .thenReturn(Mono.error(TicketproException.duringBackoff(TicketproCheckResult.FORBIDDEN)));
+
+        assertThrows(CompletionException.class, () -> handler.handle(DVORETS_TRACKED_LINK).join());
+
+        verifyNoInteractions(ticketproMetrics, healthchecksClient);
+    }
+
+    @Test
+    void shouldReportStorageFailureWithoutConfirmingTicketpro() {
+        when(client.getAvailableEvents(DVORETS_TRACKED_LINK.url()))
+                .thenReturn(Mono.just(venue("ГУ Дворец Республики, Минск", List.of(DVORETS_EVENT))));
+        when(snapshotRepository.getAvailableEventKeys(DVORETS_TRACKED_LINK.id()))
+                .thenThrow(new IllegalStateException("redis unavailable"));
+
+        assertThrows(CompletionException.class, () -> handler.handle(DVORETS_TRACKED_LINK).join());
+
+        verify(ticketproMetrics).recordFailure(TicketproCheckResult.STORAGE_ERROR);
+        verify(healthchecksClient, never()).pingTicketpro();
+        verify(snapshotRepository, never()).replaceAvailableEventKeys(any(Long.class), anySet());
     }
 
     @Test
@@ -105,6 +190,12 @@ class TicketproUpdateHandlerTest {
         verify(notificationService, never()).sendUpdate(eq(DVORETS_TRACKED_LINK), anyString());
         verify(snapshotRepository)
                 .replaceAvailableEventKeys(DVORETS_TRACKED_LINK.id(), Set.of(DVORETS_EVENT.snapshotKey()));
+        InOrder completionOrder = inOrder(snapshotRepository, ticketproMetrics, healthchecksClient);
+        completionOrder
+                .verify(snapshotRepository)
+                .replaceAvailableEventKeys(DVORETS_TRACKED_LINK.id(), Set.of(DVORETS_EVENT.snapshotKey()));
+        completionOrder.verify(ticketproMetrics).recordSuccess(1);
+        completionOrder.verify(healthchecksClient).pingTicketpro();
     }
 
     @Test

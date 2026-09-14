@@ -2,6 +2,7 @@ package backend.academy.scrapper.scheduler.sender;
 
 import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.shared.dto.LinkUpdate;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
@@ -15,23 +16,29 @@ import reactor.core.publisher.Mono;
 public class MainUpdateSender implements UpdateSender {
     private final ScrapperConfig config;
     private final HttpUpdateSender httpUpdateSender;
-    private final KafkaUpdateSender kafkaUpdateSender;
+    private final Optional<KafkaUpdateSender> kafkaUpdateSender;
 
     @Override
     public Mono<Void> sendUpdate(LinkUpdate linkUpdate) {
-        UpdateSender primarySender = config.messageTransport().equals(ScrapperConfig.MessageTransport.HTTP)
-                ? httpUpdateSender
-                : kafkaUpdateSender;
-        UpdateSender fallbackSender = config.messageTransport().equals(ScrapperConfig.MessageTransport.HTTP)
-                ? kafkaUpdateSender
-                : httpUpdateSender;
+        return switch (config.messageTransport()) {
+            case HTTP -> sendWithFallback(linkUpdate, httpUpdateSender, kafkaUpdateSender);
+            case KAFKA -> kafkaUpdateSender
+                    .<Mono<Void>>map(sender -> sendWithFallback(linkUpdate, sender, Optional.of(httpUpdateSender)))
+                    .orElseGet(() -> Mono.error(new IllegalStateException("Kafka transport is disabled")));
+        };
+    }
 
-        return primarySender.sendUpdate(linkUpdate).onErrorResume(e -> {
+    private Mono<Void> sendWithFallback(
+            LinkUpdate linkUpdate, UpdateSender primarySender, Optional<? extends UpdateSender> fallbackSender) {
+        return primarySender.sendUpdate(linkUpdate).onErrorResume(error -> {
+            if (fallbackSender.isEmpty()) {
+                return Mono.error(error);
+            }
             log.atWarn()
                     .setMessage("Primary sender failed, using fallback")
-                    .addKeyValue("error", e.getMessage())
+                    .addKeyValue("error", error.getMessage())
                     .log();
-            return fallbackSender.sendUpdate(linkUpdate);
+            return fallbackSender.orElseThrow().sendUpdate(linkUpdate);
         });
     }
 }

@@ -31,6 +31,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class TicketproEventParser {
     private static final String VENUE_HEADING_SELECTOR = "h1";
     private static final String JSON_LD_SCRIPT_SELECTOR = "script[type=application/ld+json]";
+    private static final String EVENT_CARD_SELECTOR = ".event-box";
     private static final String LAST_PAGE_LINK_SELECTOR = "link[rel=last]";
     private static final String JSON_LD_GRAPH = "@graph";
     private static final String JSON_LD_TYPE = "@type";
@@ -44,7 +45,8 @@ public class TicketproEventParser {
     private static final DateTimeFormatter TICKETPRO_COMPACT_OFFSET_DATE_TIME =
             DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssxx", Locale.ROOT).withResolverStyle(ResolverStyle.STRICT);
     private static final Pattern ANTI_BOT_CHALLENGE = Pattern.compile(
-            "\\bAnubis\\b|\\bImunify360\\b|Checking\\s+your\\s+browser|browser\\s+challenge", Pattern.CASE_INSENSITIVE);
+            "Protected\\s+by\\s+Anubis|\\bImunify360\\b|Checking\\s+your\\s+browser|browser\\s+challenge",
+            Pattern.CASE_INSENSITIVE);
 
     private final ObjectMapper objectMapper;
     private final URI ticketproBaseUri;
@@ -55,18 +57,20 @@ public class TicketproEventParser {
     }
 
     public VenuePage parseVenuePage(String html) {
-        if (ANTI_BOT_CHALLENGE.matcher(html).find()) {
-            throw new IllegalStateException("Ticketpro returned an anti-bot challenge");
-        }
+        checkForAntiBot(html);
 
         Document document = Jsoup.parse(html, ticketproBaseUri.toString());
-        String venueName = extractVenueName(document);
-
-        Map<String, TicketproEvent> events = new LinkedHashMap<>();
-        for (Element script : document.select(JSON_LD_SCRIPT_SELECTOR)) {
-            collectEvents(parseJsonLd(script.data()), events);
+        try {
+            String venueName = extractVenueName(document);
+            Map<String, TicketproEvent> events = new LinkedHashMap<>();
+            int jsonLdEventCount = collectJsonLdEvents(document, events);
+            validateEventCount(document, jsonLdEventCount);
+            return new VenuePage(venueName, List.copyOf(events.values()), extractLastPage(document));
+        } catch (TicketproException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw parseError(exception);
         }
-        return new VenuePage(venueName, List.copyOf(events.values()), extractLastPage(document));
     }
 
     private String extractVenueName(Document document) {
@@ -75,6 +79,38 @@ public class TicketproEventParser {
             throw new IllegalStateException("Ticketpro venue page has no heading");
         }
         return heading.text().trim();
+    }
+
+    private void checkForAntiBot(String html) {
+        if (ANTI_BOT_CHALLENGE.matcher(html).find()) {
+            throw new TicketproException(TicketproCheckResult.ANTIBOT, "Ticketpro returned an anti-bot challenge");
+        }
+    }
+
+    private int collectJsonLdEvents(Document document, Map<String, TicketproEvent> events) {
+        int eventCount = 0;
+        for (Element script : document.select(JSON_LD_SCRIPT_SELECTOR)) {
+            eventCount += collectEvents(parseJsonLd(script.data()), events);
+        }
+        return eventCount;
+    }
+
+    private void validateEventCount(Document document, int jsonLdEventCount) {
+        int htmlEventCount = document.select(EVENT_CARD_SELECTOR).size();
+        if (htmlEventCount > 0 && htmlEventCount != jsonLdEventCount) {
+            throw new TicketproException(
+                    TicketproCheckResult.PARSE_ERROR, "Ticketpro event cards and JSON-LD events differ");
+        }
+    }
+
+    private TicketproException parseError(RuntimeException exception) {
+        String message = exception.getMessage();
+        return new TicketproException(
+                TicketproCheckResult.PARSE_ERROR,
+                message == null || message.isBlank()
+                        ? "Ticketpro returned an incompatible event structure"
+                        : message,
+                exception);
     }
 
     private int extractLastPage(Document document) {
@@ -113,26 +149,32 @@ public class TicketproEventParser {
                     .with(JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS)
                     .readTree(json);
         } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("Ticketpro returned malformed JSON-LD", exception);
+            throw new TicketproException(
+                    TicketproCheckResult.PARSE_ERROR, "Ticketpro returned malformed JSON-LD", exception);
         }
     }
 
-    private void collectEvents(JsonNode node, Map<String, TicketproEvent> events) {
+    private int collectEvents(JsonNode node, Map<String, TicketproEvent> events) {
         if (node == null || node.isNull()) {
-            return;
+            return 0;
         }
         if (node.isArray()) {
-            node.forEach(child -> collectEvents(child, events));
-            return;
+            int eventCount = 0;
+            for (JsonNode child : node) {
+                eventCount += collectEvents(child, events);
+            }
+            return eventCount;
         }
+        int eventCount = 0;
         if (node.has(JSON_LD_GRAPH)) {
-            collectEvents(node.get(JSON_LD_GRAPH), events);
+            eventCount += collectEvents(node.get(JSON_LD_GRAPH), events);
         }
         if (!isEvent(node)) {
-            return;
+            return eventCount;
         }
 
         toAvailableEvent(node).ifPresent(event -> events.putIfAbsent(event.snapshotKey(), event));
+        return eventCount + 1;
     }
 
     private boolean isEvent(JsonNode node) {
