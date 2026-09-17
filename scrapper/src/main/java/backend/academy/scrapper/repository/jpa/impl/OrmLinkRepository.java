@@ -159,6 +159,7 @@ public class OrmLinkRepository extends BaseOrmRepository implements LinkOperatio
             case GITHUB -> linkJpaRepository.countGithubLinks();
             case STACKOVERFLOW -> linkJpaRepository.countStackoverflowLinks();
             case TICKETPRO -> linkJpaRepository.countTicketproLinks();
+            case PUPPET_THEATRE -> linkJpaRepository.countPuppetTheatreLinks();
         };
     }
 

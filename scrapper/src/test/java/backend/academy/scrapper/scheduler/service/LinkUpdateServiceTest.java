@@ -1,8 +1,9 @@
 package backend.academy.scrapper.scheduler.service;
 
 import static backend.academy.scrapper.TestData.GITHUB_TRACKED_LINK;
-import static backend.academy.scrapper.TestData.TICKETPRO_TRACKED_LINK;
+import static backend.academy.scrapper.TestData.PUPPET_THEATRE_TRACKED_LINK;
 import static backend.academy.scrapper.TestData.STACKOVERFLOW_TRACKED_LINK;
+import static backend.academy.scrapper.TestData.TICKETPRO_TRACKED_LINK;
 import static backend.academy.scrapper.TestData.UNKNOWN_TRACKED_LINK;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -17,8 +18,9 @@ import static org.mockito.Mockito.when;
 import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.scrapper.repository.LinkOperationRepository;
 import backend.academy.scrapper.scheduler.handler.GithubUpdateHandler;
-import backend.academy.scrapper.scheduler.handler.TicketproUpdateHandler;
+import backend.academy.scrapper.scheduler.handler.PuppetTheatreUpdateHandler;
 import backend.academy.scrapper.scheduler.handler.StackOverflowUpdateHandler;
+import backend.academy.scrapper.scheduler.handler.TicketproUpdateHandler;
 import backend.academy.scrapper.service.LinkTypeResolver;
 import backend.academy.shared.dto.TrackedLink;
 import java.util.ArrayList;
@@ -51,6 +53,9 @@ class LinkUpdateServiceTest {
     @Mock
     private TicketproUpdateHandler ticketproHandler;
 
+    @Mock
+    private PuppetTheatreUpdateHandler puppetTheatreHandler;
+
     private LinkUpdateService linkUpdateService;
 
     @BeforeEach
@@ -65,6 +70,7 @@ class LinkUpdateServiceTest {
                 githubHandler,
                 stackoverflowHandler,
                 ticketproHandler,
+                puppetTheatreHandler,
                 new LinkTypeResolver());
     }
 
@@ -101,8 +107,7 @@ class LinkUpdateServiceTest {
     void shouldCheckForTicketproUpdates() {
         // Arrange
         when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(TICKETPRO_TRACKED_LINK));
-        when(ticketproHandler.handle(TICKETPRO_TRACKED_LINK))
-                .thenReturn(CompletableFuture.completedFuture(null));
+        when(ticketproHandler.handle(TICKETPRO_TRACKED_LINK)).thenReturn(CompletableFuture.completedFuture(null));
 
         // Act
         linkUpdateService.checkForUpdates();
@@ -110,6 +115,18 @@ class LinkUpdateServiceTest {
         // Assert
         verify(ticketproHandler).handle(TICKETPRO_TRACKED_LINK);
         verify(linkOperationRepository).updateLastCheckedTime(eq(TICKETPRO_TRACKED_LINK), any());
+    }
+
+    @Test
+    void shouldCheckDirectPuppetTheatreUpdates() {
+        when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(PUPPET_THEATRE_TRACKED_LINK));
+        when(puppetTheatreHandler.handle(PUPPET_THEATRE_TRACKED_LINK))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        linkUpdateService.checkForUpdates();
+
+        verify(puppetTheatreHandler).handle(PUPPET_THEATRE_TRACKED_LINK);
+        verify(linkOperationRepository).updateLastCheckedTime(eq(PUPPET_THEATRE_TRACKED_LINK), any());
     }
 
     @Test
@@ -154,12 +171,10 @@ class LinkUpdateServiceTest {
     @Test
     void shouldIsolateFailedHandlerAndWaitForOtherLinks() {
         // Arrange
-        when(linkOperationRepository.getAllLinks(0))
-                .thenReturn(List.of(GITHUB_TRACKED_LINK, TICKETPRO_TRACKED_LINK));
+        when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(GITHUB_TRACKED_LINK, TICKETPRO_TRACKED_LINK));
         when(githubHandler.handle(GITHUB_TRACKED_LINK))
                 .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("github failed")));
-        when(ticketproHandler.handle(TICKETPRO_TRACKED_LINK))
-                .thenReturn(CompletableFuture.completedFuture(null));
+        when(ticketproHandler.handle(TICKETPRO_TRACKED_LINK)).thenReturn(CompletableFuture.completedFuture(null));
 
         // Act
         linkUpdateService.checkForUpdates();
@@ -180,7 +195,7 @@ class LinkUpdateServiceTest {
         linkUpdateService.checkForUpdates();
 
         // Assert
-        verifyNoInteractions(githubHandler, stackoverflowHandler, ticketproHandler);
+        verifyNoInteractions(githubHandler, stackoverflowHandler, ticketproHandler, puppetTheatreHandler);
         verify(linkOperationRepository, never()).updateLastCheckedTime(eq(UNKNOWN_TRACKED_LINK), any());
     }
 
@@ -195,6 +210,7 @@ class LinkUpdateServiceTest {
                 githubHandler,
                 stackoverflowHandler,
                 ticketproHandler,
+                puppetTheatreHandler,
                 new LinkTypeResolver());
         List<TrackedLink> trackedLinks = new PartitionProgressList(GITHUB_TRACKED_LINK);
         when(linkOperationRepository.getAllLinks(0)).thenReturn(trackedLinks);

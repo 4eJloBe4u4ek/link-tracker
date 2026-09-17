@@ -21,8 +21,10 @@ app:
     replicas: 1
 
 monitoring:
+  enabled: ${MONITORING_ENABLED:true}
   scrapper-ping-url: ${HEALTHCHECKS_SCRAPPER_PING_URL:}
   ticketpro-ping-url: ${HEALTHCHECKS_TICKETPRO_PING_URL:}
+  puppet-theatre-ping-url: ${HEALTHCHECKS_PUPPET_THEATRE_PING_URL:}
 
 spring:
   application:

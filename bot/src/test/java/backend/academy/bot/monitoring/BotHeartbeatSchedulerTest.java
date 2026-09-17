@@ -71,10 +71,7 @@ class BotHeartbeatSchedulerTest {
         // Arrange
         BotService botService = mock(BotService.class);
         HealthchecksClient healthchecksClient = new HealthchecksClient(
-                new MonitoringProperties(""),
-                WebClient.builder(),
-                new SimpleMeterRegistry(),
-                Clock.systemUTC());
+                new MonitoringProperties(true, ""), WebClient.builder(), new SimpleMeterRegistry(), Clock.systemUTC());
         BotHeartbeatScheduler scheduler = new BotHeartbeatScheduler(botService, healthchecksClient);
 
         // Act

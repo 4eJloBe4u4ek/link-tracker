@@ -32,10 +32,12 @@ class HealthchecksClientTest {
         // Arrange
         wireMock.stubFor(get("/scrapper").willReturn(aResponse().withStatus(200)));
         wireMock.stubFor(get("/ticketpro").willReturn(aResponse().withStatus(200)));
+        wireMock.stubFor(get("/puppet").willReturn(aResponse().withStatus(200)));
         Clock clock = mock(Clock.class);
         when(clock.instant()).thenReturn(NOW, NOW, NOW.plusSeconds(30), NOW.plusSeconds(30));
         HealthchecksClient client = new HealthchecksClient(
-                new MonitoringProperties(wireMock.url("/scrapper"), wireMock.url("/ticketpro")),
+                new MonitoringProperties(
+                        true, wireMock.url("/scrapper"), wireMock.url("/ticketpro"), wireMock.url("/puppet")),
                 WebClient.builder(),
                 new SimpleMeterRegistry(),
                 clock);
@@ -43,6 +45,7 @@ class HealthchecksClientTest {
         // Act
         client.pingScrapper();
         client.pingTicketpro();
+        client.pingPuppetTheatre();
         client.pingScrapper();
         client.pingTicketpro();
 
@@ -50,6 +53,23 @@ class HealthchecksClientTest {
         await().atMost(Duration.ofSeconds(2)).untilAsserted(() -> {
             wireMock.verify(1, getRequestedFor(urlEqualTo("/scrapper")));
             wireMock.verify(1, getRequestedFor(urlEqualTo("/ticketpro")));
+            wireMock.verify(1, getRequestedFor(urlEqualTo("/puppet")));
         });
+    }
+
+    @Test
+    void shouldDisableAllScrapperHeartbeatsEvenWhenUrlsArePresent() {
+        HealthchecksClient client = new HealthchecksClient(
+                new MonitoringProperties(
+                        false, wireMock.url("/scrapper"), wireMock.url("/ticketpro"), wireMock.url("/puppet")),
+                WebClient.builder(),
+                new SimpleMeterRegistry(),
+                Clock.systemUTC());
+
+        client.pingScrapper();
+        client.pingTicketpro();
+        client.pingPuppetTheatre();
+
+        wireMock.verify(0, getRequestedFor(com.github.tomakehurst.wiremock.client.WireMock.anyUrl()));
     }
 }

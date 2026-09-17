@@ -29,9 +29,13 @@ public class LinkMetrics {
                     .register(meterRegistry);
 
             Gauge.builder(ACTIVE_LINKS_GAUGE_NAME, linkOperationRepository, l -> l.countByType(LinkType.TICKETPRO))
+                    .tag(ACTIVE_LINKS_GAUGE_TAG_TYPE, LinkType.TICKETPRO.name().toLowerCase(Locale.ROOT))
+                    .register(meterRegistry);
+
+            Gauge.builder(ACTIVE_LINKS_GAUGE_NAME, linkOperationRepository, l -> l.countByType(LinkType.PUPPET_THEATRE))
                     .tag(
                             ACTIVE_LINKS_GAUGE_TAG_TYPE,
-                            LinkType.TICKETPRO.name().toLowerCase(Locale.ROOT))
+                            LinkType.PUPPET_THEATRE.name().toLowerCase(Locale.ROOT))
                     .register(meterRegistry);
         };
     }

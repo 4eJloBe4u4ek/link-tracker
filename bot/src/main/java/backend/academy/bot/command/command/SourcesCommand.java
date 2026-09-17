@@ -13,7 +13,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class SourcesCommand implements TelegramCommand {
     private static final String USAGE_MESSAGE = "Использование: " + BotCommandInfo.SOURCES.commandName();
-    private static final String SOURCES_MESSAGE = """
+    private static final String SOURCES_MESSAGE =
+            """
             Поддерживаемые источники:
 
             GitHub — репозиторий:
@@ -29,6 +30,11 @@ public class SourcesCommand implements TelegramCommand {
             https://www.ticketpro.by/koncertnye-ploshhadki/
 
             Важно: сам каталог отслеживать нельзя. Откройте нужную площадку и скопируйте ссылку её страницы.
+
+            Театр кукол — прямая афиша театра:
+            https://puppet-minsk.by/afisha
+
+            Этот источник отслеживается отдельно от площадки театра на Ticketpro.
 
             Добавьте выбранную ссылку через /track.
             """;

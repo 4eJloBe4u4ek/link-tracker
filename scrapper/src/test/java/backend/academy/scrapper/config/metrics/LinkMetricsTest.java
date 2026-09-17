@@ -29,6 +29,7 @@ class LinkMetricsTest {
         when(linkOperationRepository.countByType(LinkType.GITHUB)).thenReturn(123L);
         when(linkOperationRepository.countByType(LinkType.STACKOVERFLOW)).thenReturn(321L);
         when(linkOperationRepository.countByType(LinkType.TICKETPRO)).thenReturn(3L);
+        when(linkOperationRepository.countByType(LinkType.PUPPET_THEATRE)).thenReturn(1L);
 
         ApplicationRunner runner = metricsConfig.registerMetrics(registry, linkOperationRepository);
         runner.run(mock(ApplicationArguments.class));
@@ -50,17 +51,21 @@ class LinkMetricsTest {
         Gauge stackoverflowGauge = registry.find("custom_active_links")
                 .tag("type", "stackoverflow")
                 .gauge();
-        Gauge ticketproGauge = registry.find("custom_active_links")
-                .tag("type", "ticketpro")
+        Gauge ticketproGauge =
+                registry.find("custom_active_links").tag("type", "ticketpro").gauge();
+        Gauge puppetTheatreGauge = registry.find("custom_active_links")
+                .tag("type", "puppet_theatre")
                 .gauge();
 
         // Assert
         Assertions.assertNotNull(githubGauge);
         Assertions.assertNotNull(stackoverflowGauge);
         Assertions.assertNotNull(ticketproGauge);
+        Assertions.assertNotNull(puppetTheatreGauge);
 
         Assertions.assertEquals(123L, githubGauge.value());
         Assertions.assertEquals(321L, stackoverflowGauge.value());
         Assertions.assertEquals(3L, ticketproGauge.value());
+        Assertions.assertEquals(1L, puppetTheatreGauge.value());
     }
 }

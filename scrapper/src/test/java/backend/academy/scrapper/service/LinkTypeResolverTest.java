@@ -42,6 +42,11 @@ class LinkTypeResolverTest {
     }
 
     @Test
+    void shouldResolveDirectPuppetTheatreAfisha() {
+        assertThat(resolver.resolve("https://puppet-minsk.by/afisha")).contains(LinkType.PUPPET_THEATRE);
+    }
+
+    @Test
     void shouldResolveTicketproVenueLinkAtMaximumLength() {
         // Arrange
         String url = canonicalVenueUrl(MAX_CANONICAL_TICKETPRO_VENUE_URL_LENGTH);
@@ -73,7 +78,11 @@ class LinkTypeResolverTest {
                 "https://www.ticketpro.by/koncertnye-ploshhadki/a/b/",
                 "https://www.ticketpro.by/bilety-v-teatr/graf-monte-kristo/",
                 "https://www.ticketpro.by.evil/koncertnye-ploshhadki/dvorec-respubliki/",
-                "https://puppet-minsk.by/afisha"
+                "http://puppet-minsk.by/afisha",
+                "https://puppet-minsk.by/spektakli",
+                "https://puppet-minsk.by/afisha/",
+                "https://puppet-minsk.by/afisha?month=2026-09",
+                "https://puppet-minsk.by/afisha#top"
             })
     void shouldRejectUnsupportedLinks(String url) {
         // Act & Assert

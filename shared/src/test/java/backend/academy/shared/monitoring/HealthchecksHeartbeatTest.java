@@ -73,9 +73,9 @@ class HealthchecksHeartbeatTest {
 
         // Act & Assert
         assertThatCode(heartbeat::ping).doesNotThrowAnyException();
-        await().atMost(Duration.ofSeconds(2)).untilAsserted(() -> assertThat(registry
-                        .counter("monitoring_heartbeat_total", "monitor", "service", "result", "failure")
-                        .count())
+        await().atMost(Duration.ofSeconds(2)).untilAsserted(() -> assertThat(
+                        registry.counter("monitoring_heartbeat_total", "monitor", "service", "result", "failure")
+                                .count())
                 .isEqualTo(1));
     }
 
@@ -95,9 +95,7 @@ class HealthchecksHeartbeatTest {
         wireMock.stubFor(get("/secret-ping").willReturn(aResponse().withStatus(200)));
         SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
         ObservationRegistry observationRegistry = ObservationRegistry.create();
-        observationRegistry
-                .observationConfig()
-                .observationHandler(new DefaultMeterObservationHandler(meterRegistry));
+        observationRegistry.observationConfig().observationHandler(new DefaultMeterObservationHandler(meterRegistry));
         HealthchecksHeartbeat heartbeat = new HealthchecksHeartbeat(
                 "service",
                 wireMock.url("/secret-ping"),

@@ -86,15 +86,18 @@ class LinkServiceTest {
     }
 
     @Test
-    void shouldRejectLegacyTicketproUrlBeforeRepositoryAccess() {
-        // Arrange
-        AddLinkRequest request = new AddLinkRequest("https://puppet-minsk.by/afisha", List.of(), List.of());
+    void shouldSaveDirectPuppetTheatreAfisha() {
+        String url = "https://puppet-minsk.by/afisha";
+        AddLinkRequest request = new AddLinkRequest(url, List.of(), List.of());
+        TrackedLink storedLink = new TrackedLink(
+                1L, url, request.tags(), request.filters(), LocalDateTime.MIN, LocalDateTime.MIN);
+        when(linkOperationRepository.addLink(CHAT_ID, url, request.tags(), request.filters()))
+                .thenReturn(storedLink);
 
-        // Act & Assert
-        assertThrows(UnsupportedLinkException.class, () -> linkService.addLink(CHAT_ID, request));
+        LinkResponse response = linkService.addLink(CHAT_ID, request);
 
-        // Assert
-        verifyNoInteractions(linkOperationRepository);
+        assertThat(response.url()).isEqualTo(url);
+        verify(linkOperationRepository).addLink(CHAT_ID, url, request.tags(), request.filters());
     }
 
     @Test

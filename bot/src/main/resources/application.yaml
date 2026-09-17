@@ -8,6 +8,7 @@ app:
     trusted-packages: backend.academy.shared.dto
 
 monitoring:
+  enabled: ${MONITORING_ENABLED:true}
   bot-ping-url: ${HEALTHCHECKS_BOT_PING_URL:}
 
 spring:

@@ -26,7 +26,11 @@ public class HealthchecksClient {
             MeterRegistry meterRegistry,
             Clock clock) {
         this.heartbeat = new HealthchecksHeartbeat(
-                MONITOR_NAME, properties.botPingUrl(), webClientBuilder, meterRegistry, clock);
+                MONITOR_NAME,
+                properties.enabled() ? properties.botPingUrl() : "",
+                webClientBuilder,
+                meterRegistry,
+                clock);
     }
 
     public void pingBot() {

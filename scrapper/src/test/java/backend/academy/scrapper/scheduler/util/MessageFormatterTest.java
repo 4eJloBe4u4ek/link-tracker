@@ -9,12 +9,15 @@ import backend.academy.scrapper.client.github.GithubCommit;
 import backend.academy.scrapper.client.github.GithubIssue;
 import backend.academy.scrapper.client.github.GithubPullRequest;
 import backend.academy.scrapper.client.github.GithubUser;
-import backend.academy.scrapper.client.ticketpro.TicketproEvent;
+import backend.academy.scrapper.client.puppettheatre.PuppetTheatreSession;
 import backend.academy.scrapper.client.stackoverflow.StackOverflowAnswer;
 import backend.academy.scrapper.client.stackoverflow.StackOverflowComment;
 import backend.academy.scrapper.client.stackoverflow.StackOverflowOwner;
 import backend.academy.scrapper.client.stackoverflow.StackOverflowQuestion;
+import backend.academy.scrapper.client.ticketpro.TicketproEvent;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
@@ -341,5 +344,58 @@ class MessageFormatterTest {
                 .contains(shortEvent.title())
                 .doesNotContain(longEvent.title())
                 .endsWith("И ещё новых событий: 1");
+    }
+
+    @Test
+    void shouldFormatPuppetTheatreSession() {
+        PuppetTheatreSession session = new PuppetTheatreSession(
+                "Мойдодыр",
+                LocalDate.of(2026, 10, 2),
+                LocalTime.of(19, 30),
+                "https://puppet-minsk.by/spektakli/mojdodyr/");
+
+        String result = MessageFormatter.formatPuppetTheatreSessions(List.of(session));
+
+        assertThat(result)
+                .isEqualTo(
+                        "🎭 В театре кукол появились новые сеансы\n\n"
+                                + "• Мойдодыр\n"
+                                + "02.10.2026, 19:30\n"
+                                + "https://puppet-minsk.by/spektakli/mojdodyr/\n\n");
+    }
+
+    @Test
+    void shouldLimitPuppetTheatreMessageToTenSessionBlocks() {
+        List<PuppetTheatreSession> sessions = IntStream.range(0, 12)
+                .mapToObj(index -> new PuppetTheatreSession(
+                        "Спектакль " + index,
+                        LocalDate.of(2026, 10, 2),
+                        LocalTime.of(19, 30),
+                        "https://puppet-minsk.by/spektakli/" + index))
+                .toList();
+
+        String result = MessageFormatter.formatPuppetTheatreSessions(sessions);
+
+        assertThat(result.split("• ", -1).length - 1).isEqualTo(10);
+        assertThat(result)
+                .contains("• Спектакль 0\n", "• Спектакль 9\n")
+                .doesNotContain("• Спектакль 10\n", "• Спектакль 11\n")
+                .endsWith("И ещё новых сеансов: 2");
+    }
+
+    @Test
+    void shouldKeepPuppetTheatreDescriptionWithinReservedLimit() {
+        List<PuppetTheatreSession> sessions = IntStream.range(0, 10)
+                .mapToObj(index -> new PuppetTheatreSession(
+                        "Спектакль " + index + " " + "Я".repeat(700),
+                        LocalDate.of(2026, 10, 2),
+                        LocalTime.of(19, 30),
+                        "https://puppet-minsk.by/spektakli/" + "x".repeat(300) + index))
+                .toList();
+
+        String result = MessageFormatter.formatPuppetTheatreSessions(sessions);
+
+        assertThat(result.length()).isLessThanOrEqualTo(3800);
+        assertThat(result).contains("И ещё новых сеансов:");
     }
 }

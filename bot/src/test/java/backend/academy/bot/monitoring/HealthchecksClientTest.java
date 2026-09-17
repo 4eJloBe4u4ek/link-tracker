@@ -29,7 +29,7 @@ class HealthchecksClientTest {
         wireMock.stubFor(get("/bot").willReturn(aResponse().withStatus(200)));
         SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
         HealthchecksClient client = new HealthchecksClient(
-                new MonitoringProperties(wireMock.url("/bot")),
+                new MonitoringProperties(true, wireMock.url("/bot")),
                 WebClient.builder(),
                 meterRegistry,
                 Clock.systemUTC());
@@ -46,5 +46,19 @@ class HealthchecksClientTest {
                             .count())
                     .isEqualTo(1);
         });
+    }
+
+    @Test
+    void shouldDisableBotHeartbeatEvenWhenUrlIsPresent() {
+        HealthchecksClient client = new HealthchecksClient(
+                new MonitoringProperties(false, wireMock.url("/bot")),
+                WebClient.builder(),
+                new SimpleMeterRegistry(),
+                Clock.systemUTC());
+
+        client.pingBot();
+
+        assertThat(client.isEnabled()).isFalse();
+        wireMock.verify(0, getRequestedFor(urlEqualTo("/bot")));
     }
 }

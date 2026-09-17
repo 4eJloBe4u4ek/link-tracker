@@ -3,8 +3,9 @@ package backend.academy.scrapper.scheduler.service;
 import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.scrapper.repository.LinkOperationRepository;
 import backend.academy.scrapper.scheduler.handler.GithubUpdateHandler;
-import backend.academy.scrapper.scheduler.handler.TicketproUpdateHandler;
+import backend.academy.scrapper.scheduler.handler.PuppetTheatreUpdateHandler;
 import backend.academy.scrapper.scheduler.handler.StackOverflowUpdateHandler;
+import backend.academy.scrapper.scheduler.handler.TicketproUpdateHandler;
 import backend.academy.scrapper.service.LinkTypeResolver;
 import backend.academy.shared.dto.LinkType;
 import backend.academy.shared.dto.TrackedLink;
@@ -27,6 +28,7 @@ public class LinkUpdateService {
     private final GithubUpdateHandler githubHandler;
     private final StackOverflowUpdateHandler stackoverflowHandler;
     private final TicketproUpdateHandler ticketproHandler;
+    private final PuppetTheatreUpdateHandler puppetTheatreHandler;
     private final LinkTypeResolver linkTypeResolver;
     private final ExecutorService executorService;
 
@@ -36,12 +38,14 @@ public class LinkUpdateService {
             GithubUpdateHandler githubHandler,
             StackOverflowUpdateHandler stackoverflowHandler,
             TicketproUpdateHandler ticketproHandler,
+            PuppetTheatreUpdateHandler puppetTheatreHandler,
             LinkTypeResolver linkTypeResolver) {
         this.scrapperConfig = scrapperConfig;
         this.linkOperationRepository = linkOperationRepository;
         this.githubHandler = githubHandler;
         this.stackoverflowHandler = stackoverflowHandler;
         this.ticketproHandler = ticketproHandler;
+        this.puppetTheatreHandler = puppetTheatreHandler;
         this.linkTypeResolver = linkTypeResolver;
         this.executorService =
                 Executors.newFixedThreadPool(scrapperConfig.scheduler().threadCount());
@@ -49,7 +53,8 @@ public class LinkUpdateService {
 
     public void checkForUpdates() {
         int page = 0;
-        int chunkSize = Math.max(1, scrapperConfig.batchSize() / scrapperConfig.scheduler().threadCount());
+        int chunkSize = Math.max(
+                1, scrapperConfig.batchSize() / scrapperConfig.scheduler().threadCount());
         List<TrackedLink> trackedLinks;
         do {
             trackedLinks = linkOperationRepository.getAllLinks(page++);
@@ -91,6 +96,7 @@ public class LinkUpdateService {
                         case GITHUB -> githubHandler.handle(trackedLink);
                         case STACKOVERFLOW -> stackoverflowHandler.handle(trackedLink);
                         case TICKETPRO -> ticketproHandler.handle(trackedLink);
+                        case PUPPET_THEATRE -> puppetTheatreHandler.handle(trackedLink);
                     };
 
             return updateFuture

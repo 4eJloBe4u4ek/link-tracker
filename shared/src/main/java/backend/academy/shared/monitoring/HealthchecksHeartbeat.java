@@ -24,11 +24,7 @@ public final class HealthchecksHeartbeat {
     private final AtomicReference<Instant> lastAttempt = new AtomicReference<>();
 
     public HealthchecksHeartbeat(
-            String name,
-            String pingUrl,
-            WebClient.Builder webClientBuilder,
-            MeterRegistry meterRegistry,
-            Clock clock) {
+            String name, String pingUrl, WebClient.Builder webClientBuilder, MeterRegistry meterRegistry, Clock clock) {
         this.name = name;
         this.pingUrl = pingUrl;
         this.webClient = webClientBuilder

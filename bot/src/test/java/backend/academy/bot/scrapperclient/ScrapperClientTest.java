@@ -19,6 +19,7 @@ import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.timelimiter.TimeLimiter;
 import java.time.Duration;
+import java.util.concurrent.TimeoutException;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -132,7 +133,7 @@ class ScrapperClientTest {
 
         // Assert
         StepVerifier.create(call)
-                .expectErrorMatches(e -> e instanceof java.util.concurrent.TimeoutException)
+                .expectErrorMatches(e -> e instanceof TimeoutException)
                 .verify();
 
         wireMock.verify(1, postRequestedFor(urlPathEqualTo(TG_CHAT_PATH + TEST_CHAT_ID)));

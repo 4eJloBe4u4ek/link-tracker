@@ -44,6 +44,7 @@ class SourcesCommandTest {
             return text.contains("https://github.com/spring-projects/spring-boot")
                     && text.contains("https://stackoverflow.com/questions/11227809/")
                     && text.contains("https://www.ticketpro.by/koncertnye-ploshhadki/dvorec-respubliki/")
+                    && text.contains("https://puppet-minsk.by/afisha")
                     && text.contains("сам каталог отслеживать нельзя")
                     && text.contains("/track");
         }));
@@ -58,7 +59,7 @@ class SourcesCommandTest {
         sourcesCommand.execute(update, bot);
 
         // Assert
-        verify(bot).execute(argThat(request ->
-                request.getParameters().get("text").equals("Использование: /sources")));
+        verify(bot)
+                .execute(argThat(request -> request.getParameters().get("text").equals("Использование: /sources")));
     }
 }

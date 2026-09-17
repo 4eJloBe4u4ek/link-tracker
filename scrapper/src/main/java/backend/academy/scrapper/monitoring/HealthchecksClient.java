@@ -12,9 +12,11 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class HealthchecksClient {
     private static final String SCRAPPER_MONITOR_NAME = "scrapper";
     private static final String TICKETPRO_MONITOR_NAME = "ticketpro";
+    private static final String PUPPET_THEATRE_MONITOR_NAME = "puppet-theatre";
 
     private final HealthchecksHeartbeat scrapperHeartbeat;
     private final HealthchecksHeartbeat ticketproHeartbeat;
+    private final HealthchecksHeartbeat puppetTheatreHeartbeat;
 
     @Autowired
     public HealthchecksClient(
@@ -27,10 +29,15 @@ public class HealthchecksClient {
             WebClient.Builder webClientBuilder,
             MeterRegistry meterRegistry,
             Clock clock) {
-        this.scrapperHeartbeat = new HealthchecksHeartbeat(
-                SCRAPPER_MONITOR_NAME, properties.scrapperPingUrl(), webClientBuilder, meterRegistry, clock);
-        this.ticketproHeartbeat = new HealthchecksHeartbeat(
-                TICKETPRO_MONITOR_NAME, properties.ticketproPingUrl(), webClientBuilder, meterRegistry, clock);
+        String scrapperUrl = properties.enabled() ? properties.scrapperPingUrl() : "";
+        String ticketproUrl = properties.enabled() ? properties.ticketproPingUrl() : "";
+        String puppetTheatreUrl = properties.enabled() ? properties.puppetTheatrePingUrl() : "";
+        this.scrapperHeartbeat =
+                new HealthchecksHeartbeat(SCRAPPER_MONITOR_NAME, scrapperUrl, webClientBuilder, meterRegistry, clock);
+        this.ticketproHeartbeat =
+                new HealthchecksHeartbeat(TICKETPRO_MONITOR_NAME, ticketproUrl, webClientBuilder, meterRegistry, clock);
+        this.puppetTheatreHeartbeat = new HealthchecksHeartbeat(
+                PUPPET_THEATRE_MONITOR_NAME, puppetTheatreUrl, webClientBuilder, meterRegistry, clock);
     }
 
     public void pingScrapper() {
@@ -39,5 +46,9 @@ public class HealthchecksClient {
 
     public void pingTicketpro() {
         ticketproHeartbeat.ping();
+    }
+
+    public void pingPuppetTheatre() {
+        puppetTheatreHeartbeat.ping();
     }
 }
