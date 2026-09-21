@@ -369,12 +369,32 @@ class TicketproEventParserTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"/venue/ticketpro/", "https://ticketpro.by/venue/ticketpro/"})
+    void shouldTreatLastPageLinkWithoutQueryAsSinglePage(String lastPageUrl) {
+        // Arrange
+        String html = """
+                <html>
+                  <head><link rel="last" href="%s"></head>
+                  <body><h1>Белорусский государственный театр кукол</h1></body>
+                </html>
+                """
+                .formatted(lastPageUrl);
+
+        // Act
+        VenuePage result = parser.parseVenuePage(html);
+
+        // Assert
+        assertThat(result.lastPage()).isOne();
+    }
+
+    @ParameterizedTest
     @ValueSource(
             strings = {
-                "/venue/ticketpro/",
+                "/venue/ticketpro/?filter=available",
                 "/venue/ticketpro/?page=0",
                 "/venue/ticketpro/?page=-1",
-                "/venue/ticketpro/?page=not-a-number"
+                "/venue/ticketpro/?page=not-a-number",
+                "/venue/ticketpro/?page=2&page=3"
             })
     void shouldRejectInvalidLastPageLink(String lastPageUrl) {
         // Arrange

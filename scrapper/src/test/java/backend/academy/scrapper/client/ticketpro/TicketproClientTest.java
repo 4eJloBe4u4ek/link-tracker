@@ -5,6 +5,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.matching;
 import static com.github.tomakehurst.wiremock.client.WireMock.notMatching;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
@@ -267,6 +268,35 @@ class TicketproClientTest {
         wireMock.verify(getRequestedFor(urlEqualTo(VENUE_PATH)));
         wireMock.verify(getRequestedFor(urlEqualTo(VENUE_PATH + "?page=2")));
         wireMock.verify(0, getRequestedFor(urlPathEqualTo(VENUE_PATH)).withQueryParam("page", equalTo("1")));
+    }
+
+    @Test
+    void shouldTreatLastPageLinkWithoutPageParameterAsSinglePage() {
+        // Arrange
+        String event = eventJson("buratino", "Буратино", "2026-09-12T11:00:00+03:00");
+        stubVenuePage(
+                """
+                <html>
+                  <head><link href="%s" rel="last"></head>
+                  <body>
+                    <h1>Белорусский государственный театр кукол</h1>
+                    <script type="application/ld+json">%s</script>
+                    <div class="event-box"></div>
+                  </body>
+                </html>
+                """
+                        .formatted(VENUE_PATH, event));
+
+        // Act
+        Mono<TicketproVenue> result = client.getAvailableEvents(venueUrl());
+
+        // Assert
+        StepVerifier.create(result)
+                .expectNextMatches(venue -> venue.events().size() == 1
+                        && venue.events().getFirst().title().equals("Буратино"))
+                .verifyComplete();
+        wireMock.verify(1, getRequestedFor(urlEqualTo(VENUE_PATH)));
+        wireMock.verify(0, getRequestedFor(urlPathEqualTo(VENUE_PATH)).withQueryParam("page", matching(".*")));
     }
 
     @Test

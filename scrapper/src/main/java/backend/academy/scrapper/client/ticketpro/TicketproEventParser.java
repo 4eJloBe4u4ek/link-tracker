@@ -24,6 +24,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -119,13 +120,17 @@ public class TicketproEventParser {
             return 1;
         }
 
-        String page = UriComponentsBuilder.fromUriString(lastPageLink.attr("href"))
+        MultiValueMap<String, String> queryParams = UriComponentsBuilder.fromUriString(lastPageLink.attr("href"))
                 .build()
-                .getQueryParams()
-                .getFirst("page");
-        if (page == null) {
+                .getQueryParams();
+        List<String> pageValues = queryParams.get("page");
+        if (pageValues == null && queryParams.isEmpty()) {
+            return 1;
+        }
+        if (pageValues == null || pageValues.size() != 1) {
             throw new IllegalStateException("Ticketpro returned invalid venue pagination");
         }
+        String page = pageValues.getFirst();
 
         final int lastPage;
         try {
