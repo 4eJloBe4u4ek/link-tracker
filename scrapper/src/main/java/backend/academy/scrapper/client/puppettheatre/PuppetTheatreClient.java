@@ -48,11 +48,7 @@ public class PuppetTheatreClient {
         this(pageParser, AFISHA_URI, Clock.systemUTC(), REQUEST_TIMEOUT);
     }
 
-    PuppetTheatreClient(
-            PuppetTheatrePageParser pageParser,
-            URI afishaUri,
-            Clock clock,
-            Duration requestTimeout) {
+    PuppetTheatreClient(PuppetTheatrePageParser pageParser, URI afishaUri, Clock clock, Duration requestTimeout) {
         this.pageParser = pageParser;
         this.afishaUri = afishaUri;
         this.clock = clock;
@@ -77,7 +73,7 @@ public class PuppetTheatreClient {
                 })
                 .timeout(requestTimeout)
                 .onErrorMap(this::classifyFailure)
-                .doOnError(this::recordBlockingFailure)
+                .doOnError(this::recordBackoffFailure)
                 .doOnSuccess(ignored -> backoff.recordSuccess());
     }
 
@@ -93,23 +89,26 @@ public class PuppetTheatreClient {
         rememberCookies(response);
         HttpStatusCode status = response.statusCode();
         if (status.is3xxRedirection()) {
-            return fail(PuppetTheatreCheckResult.ANTIBOT, "Puppet theatre returned an unsafe redirect", Duration.ZERO);
+            return fail(
+                    PuppetTheatreCheckResult.ANTIBOT,
+                    "Puppet theatre returned an unsafe redirect",
+                    retryAfter(response));
         }
         if (status.isSameCodeAs(HttpStatus.FORBIDDEN)) {
-            return fail(PuppetTheatreCheckResult.HTTP_403, "Puppet theatre request forbidden", Duration.ZERO);
+            return fail(
+                    PuppetTheatreCheckResult.HTTP_403, "Puppet theatre request forbidden", retryAfter(response));
         }
         if (status.isSameCodeAs(HttpStatus.TOO_MANY_REQUESTS)) {
-            String retryAfter = response.headers().asHttpHeaders().getFirst(HttpHeaders.RETRY_AFTER);
             return fail(
                     PuppetTheatreCheckResult.HTTP_429,
                     "Puppet theatre rate limit exceeded",
-                    parseRetryAfter(retryAfter));
+                    retryAfter(response));
         }
         if (!status.is2xxSuccessful()) {
             return fail(
                     PuppetTheatreCheckResult.HTTP_ERROR,
                     "Puppet theatre returned HTTP " + status.value(),
-                    Duration.ZERO);
+                    retryAfter(response));
         }
         return readHtml(response);
     }
@@ -171,15 +170,21 @@ public class PuppetTheatreClient {
                 PuppetTheatreCheckResult.PARSE_ERROR, "Puppet theatre response could not be parsed", error);
     }
 
-    private void recordBlockingFailure(Throwable error) {
+    private void recordBackoffFailure(Throwable error) {
         if (!(error instanceof PuppetTheatreException exception)) {
             return;
         }
-        if (exception.result() == PuppetTheatreCheckResult.HTTP_403
-                || exception.result() == PuppetTheatreCheckResult.HTTP_429
-                || exception.result() == PuppetTheatreCheckResult.ANTIBOT) {
-            backoff.recordBlockingFailure(exception.retryAfter());
+        switch (exception.result()) {
+            case ANTIBOT, HTTP_403, HTTP_429, HTTP_ERROR, NETWORK_ERROR, TIMEOUT -> backoff.recordFailure(
+                    exception.result(), exception.retryAfter());
+            default -> {
+                // Parsing, storage and delivery failures do not indicate that the remote site needs a pause.
+            }
         }
+    }
+
+    private Duration retryAfter(ClientResponse response) {
+        return parseRetryAfter(response.headers().asHttpHeaders().getFirst(HttpHeaders.RETRY_AFTER));
     }
 
     private Duration parseRetryAfter(String value) {

@@ -10,56 +10,73 @@ import org.junit.jupiter.api.Test;
 
 class PuppetTheatreBackoffTest {
     private final MutableClock clock = new MutableClock(Instant.parse("2026-09-14T10:00:00Z"));
-    private final PuppetTheatreBackoff backoff = new PuppetTheatreBackoff(clock);
+    private final PuppetTheatreBackoff backoff = new PuppetTheatreBackoff(clock, () -> 0);
 
     @Test
-    void shouldRetryFirstBlockingFailureOnTheRegularSchedulerInterval() {
-        Duration delay = backoff.recordBlockingFailure(Duration.ZERO);
-
-        assertThat(delay).isZero();
-        assertThat(backoff.requestAllowed()).isTrue();
+    void shouldBackOffTransientFailuresAtOneTwoAndFiveMinutes() {
+        assertDelay(PuppetTheatreCheckResult.HTTP_ERROR, Duration.ofMinutes(1));
+        assertDelay(PuppetTheatreCheckResult.TIMEOUT, Duration.ofMinutes(2));
+        assertDelay(PuppetTheatreCheckResult.NETWORK_ERROR, Duration.ofMinutes(5));
+        assertDelay(PuppetTheatreCheckResult.HTTP_ERROR, Duration.ofMinutes(5));
     }
 
     @Test
-    void shouldEscalateRepeatedBlockingFailuresAndCapAtOneHour() {
-        assertThat(backoff.recordBlockingFailure(Duration.ZERO)).isZero();
-        assertDelay(Duration.ofMinutes(2));
-        assertDelay(Duration.ofMinutes(5));
-        assertDelay(Duration.ofMinutes(15));
-        assertDelay(Duration.ofMinutes(30));
-        assertDelay(Duration.ofHours(1));
-        assertDelay(Duration.ofHours(1));
+    void shouldBackOffForbiddenResponsesAtTwoFiveAndTenMinutes() {
+        assertDelay(PuppetTheatreCheckResult.HTTP_403, Duration.ofMinutes(2));
+        assertDelay(PuppetTheatreCheckResult.ANTIBOT, Duration.ofMinutes(5));
+        assertDelay(PuppetTheatreCheckResult.HTTP_403, Duration.ofMinutes(10));
+        assertDelay(PuppetTheatreCheckResult.HTTP_403, Duration.ofMinutes(10));
     }
 
     @Test
-    void shouldHonorLongerRetryAfterOnFirstFailure() {
-        Duration delay = backoff.recordBlockingFailure(Duration.ofMinutes(8));
+    void shouldBackOffRateLimitsAtFiveFifteenAndThirtyMinutes() {
+        assertDelay(PuppetTheatreCheckResult.HTTP_429, Duration.ofMinutes(5));
+        assertDelay(PuppetTheatreCheckResult.HTTP_429, Duration.ofMinutes(15));
+        assertDelay(PuppetTheatreCheckResult.HTTP_429, Duration.ofMinutes(30));
+        assertDelay(PuppetTheatreCheckResult.HTTP_429, Duration.ofMinutes(30));
+    }
 
-        assertThat(delay).isEqualTo(Duration.ofMinutes(8));
+    @Test
+    void shouldHonorRetryAfterWhenItIsLongerThanTheAdaptiveDelay() {
+        Duration delay = backoff.recordFailure(PuppetTheatreCheckResult.HTTP_429, Duration.ofHours(2));
+
+        assertThat(delay).isEqualTo(Duration.ofHours(2));
         assertThat(backoff.requestAllowed()).isFalse();
-        clock.advance(Duration.ofMinutes(8));
+        clock.advance(Duration.ofHours(2));
         assertThat(backoff.requestAllowed()).isTrue();
     }
 
     @Test
-    void shouldResetEscalationOnlyAfterThreeStableSuccesses() {
-        backoff.recordBlockingFailure(Duration.ZERO);
-        backoff.recordBlockingFailure(Duration.ZERO);
-        clock.advance(Duration.ofMinutes(2));
-
-        backoff.recordSuccess();
-        backoff.recordSuccess();
-        assertThat(backoff.recordBlockingFailure(Duration.ZERO)).isEqualTo(Duration.ofMinutes(5));
-        clock.advance(Duration.ofMinutes(5));
-        backoff.recordSuccess();
-        backoff.recordSuccess();
-        backoff.recordSuccess();
-
-        assertThat(backoff.recordBlockingFailure(Duration.ZERO)).isZero();
+    void shouldRestartEscalationWhenFailurePolicyChanges() {
+        assertDelay(PuppetTheatreCheckResult.HTTP_ERROR, Duration.ofMinutes(1));
+        assertDelay(PuppetTheatreCheckResult.HTTP_ERROR, Duration.ofMinutes(2));
+        assertDelay(PuppetTheatreCheckResult.HTTP_403, Duration.ofMinutes(2));
+        assertDelay(PuppetTheatreCheckResult.HTTP_ERROR, Duration.ofMinutes(1));
     }
 
-    private void assertDelay(Duration expected) {
-        Duration actual = backoff.recordBlockingFailure(Duration.ZERO);
+    @Test
+    void shouldResetEscalationAfterOneSuccessfulCheck() {
+        assertDelay(PuppetTheatreCheckResult.HTTP_403, Duration.ofMinutes(2));
+        assertDelay(PuppetTheatreCheckResult.HTTP_403, Duration.ofMinutes(5));
+
+        backoff.recordSuccess();
+
+        assertDelay(PuppetTheatreCheckResult.HTTP_403, Duration.ofMinutes(2));
+    }
+
+    @Test
+    void shouldApplyBoundedJitterWithoutShorteningRetryAfter() {
+        PuppetTheatreBackoff positiveJitter = new PuppetTheatreBackoff(clock, () -> 0.5);
+        PuppetTheatreBackoff negativeJitter = new PuppetTheatreBackoff(clock, () -> -0.5);
+
+        assertThat(positiveJitter.recordFailure(PuppetTheatreCheckResult.HTTP_ERROR, Duration.ZERO))
+                .isEqualTo(Duration.ofSeconds(66));
+        assertThat(negativeJitter.recordFailure(PuppetTheatreCheckResult.HTTP_ERROR, Duration.ofMinutes(1)))
+                .isEqualTo(Duration.ofMinutes(1));
+    }
+
+    private void assertDelay(PuppetTheatreCheckResult result, Duration expected) {
+        Duration actual = backoff.recordFailure(result, Duration.ZERO);
         assertThat(actual).isEqualTo(expected);
         assertThat(backoff.requestAllowed()).isFalse();
         clock.advance(expected);

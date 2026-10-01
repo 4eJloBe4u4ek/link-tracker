@@ -4,6 +4,7 @@ import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.scrapper.repository.LinkOperationRepository;
 import backend.academy.scrapper.scheduler.handler.GithubUpdateHandler;
 import backend.academy.scrapper.scheduler.handler.PuppetTheatreUpdateHandler;
+import backend.academy.scrapper.scheduler.handler.PuppetTheatreUpdateHandler.CheckCycle;
 import backend.academy.scrapper.scheduler.handler.StackOverflowUpdateHandler;
 import backend.academy.scrapper.scheduler.handler.TicketproUpdateHandler;
 import backend.academy.scrapper.service.LinkTypeResolver;
@@ -52,6 +53,7 @@ public class LinkUpdateService {
     }
 
     public void checkForUpdates() {
+        CheckCycle puppetTheatreCheckCycle = puppetTheatreHandler.newCheckCycle();
         int page = 0;
         int chunkSize = Math.max(
                 1, scrapperConfig.batchSize() / scrapperConfig.scheduler().threadCount());
@@ -59,18 +61,19 @@ public class LinkUpdateService {
         do {
             trackedLinks = linkOperationRepository.getAllLinks(page++);
             if (!trackedLinks.isEmpty()) {
-                processLinksMultithreaded(trackedLinks, chunkSize);
+                processLinksMultithreaded(trackedLinks, chunkSize, puppetTheatreCheckCycle);
             }
         } while (!trackedLinks.isEmpty());
     }
 
-    private void processLinksMultithreaded(List<TrackedLink> trackedLinks, int chunkSize) {
+    private void processLinksMultithreaded(
+            List<TrackedLink> trackedLinks, int chunkSize, CheckCycle puppetTheatreCheckCycle) {
         List<List<TrackedLink>> partitions = partition(trackedLinks, chunkSize);
 
         List<CompletableFuture<Void>> futures = partitions.stream()
                 .map(subList -> CompletableFuture.runAsync(
                         () -> CompletableFuture.allOf(subList.stream()
-                                        .map(this::checkLinkUpdates)
+                                        .map(link -> checkLinkUpdates(link, puppetTheatreCheckCycle))
                                         .toArray(CompletableFuture[]::new))
                                 .join(),
                         executorService))
@@ -79,7 +82,7 @@ public class LinkUpdateService {
         CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
     }
 
-    private CompletableFuture<Void> checkLinkUpdates(TrackedLink trackedLink) {
+    private CompletableFuture<Void> checkLinkUpdates(TrackedLink trackedLink, CheckCycle puppetTheatreCheckCycle) {
         try {
             String url = trackedLink.url();
             Optional<LinkType> linkType = linkTypeResolver.resolve(url);
@@ -96,7 +99,7 @@ public class LinkUpdateService {
                         case GITHUB -> githubHandler.handle(trackedLink);
                         case STACKOVERFLOW -> stackoverflowHandler.handle(trackedLink);
                         case TICKETPRO -> ticketproHandler.handle(trackedLink);
-                        case PUPPET_THEATRE -> puppetTheatreHandler.handle(trackedLink);
+                        case PUPPET_THEATRE -> puppetTheatreHandler.handle(trackedLink, puppetTheatreCheckCycle);
                     };
 
             return updateFuture

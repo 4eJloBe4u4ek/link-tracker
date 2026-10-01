@@ -28,6 +28,7 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,13 @@ import reactor.core.publisher.Mono;
 class PuppetTheatreUpdateHandlerTest {
     private static final TrackedLink TRACKED_LINK = new TrackedLink(
             42L,
+            "https://puppet-minsk.by/afisha",
+            List.of(),
+            List.of(),
+            LocalDateTime.parse("2026-09-14T12:00:00"),
+            LocalDateTime.parse("2026-09-14T12:00:00"));
+    private static final TrackedLink SECOND_TRACKED_LINK = new TrackedLink(
+            43L,
             "https://puppet-minsk.by/afisha",
             List.of(),
             List.of(),
@@ -87,7 +95,7 @@ class PuppetTheatreUpdateHandlerTest {
         when(client.getAvailableSessions()).thenReturn(Mono.just(page(EXISTING)));
         when(snapshotRepository.getAvailableSessionKeys(42L)).thenReturn(Optional.empty());
 
-        handler.handle(TRACKED_LINK).join();
+        handle().join();
 
         verify(notificationService, never()).sendUpdate(eq(TRACKED_LINK), anyString());
         verify(snapshotRepository).replaceAvailableSessionKeys(42L, Set.of(EXISTING.snapshotKey()));
@@ -101,10 +109,12 @@ class PuppetTheatreUpdateHandlerTest {
         when(snapshotRepository.getAvailableSessionKeys(42L)).thenReturn(Optional.of(Set.of()));
         when(notificationService.sendUpdate(eq(TRACKED_LINK), anyString())).thenReturn(Mono.empty());
 
-        handler.handle(TRACKED_LINK).join();
+        handle().join();
 
-        verify(notificationService).sendUpdate(
-                eq(TRACKED_LINK), org.mockito.ArgumentMatchers.argThat(message -> message.contains("Буратино")));
+        verify(notificationService)
+                .sendUpdate(
+                        eq(TRACKED_LINK),
+                        org.mockito.ArgumentMatchers.argThat(message -> message.contains("Буратино")));
         verify(snapshotRepository).replaceAvailableSessionKeys(42L, Set.of(EXISTING.snapshotKey()));
     }
 
@@ -114,7 +124,7 @@ class PuppetTheatreUpdateHandlerTest {
         when(snapshotRepository.getAvailableSessionKeys(42L)).thenReturn(Optional.of(Set.of(EXISTING.snapshotKey())));
         when(notificationService.sendUpdate(eq(TRACKED_LINK), anyString())).thenReturn(Mono.empty());
 
-        handler.handle(TRACKED_LINK).join();
+        handle().join();
 
         InOrder order = inOrder(notificationService, snapshotRepository);
         order.verify(notificationService)
@@ -138,8 +148,8 @@ class PuppetTheatreUpdateHandlerTest {
                         Optional.of(Set.of(NEW_SESSION.snapshotKey())));
         when(notificationService.sendUpdate(eq(TRACKED_LINK), anyString())).thenReturn(Mono.empty());
 
-        handler.handle(TRACKED_LINK).join();
-        handler.handle(TRACKED_LINK).join();
+        handle().join();
+        handle().join();
 
         verify(notificationService)
                 .sendUpdate(
@@ -159,8 +169,7 @@ class PuppetTheatreUpdateHandlerTest {
         when(notificationService.sendUpdate(eq(TRACKED_LINK), anyString()))
                 .thenReturn(Mono.error(new IllegalStateException("delivery failed")));
 
-        assertThrows(
-                CompletionException.class, () -> handler.handle(TRACKED_LINK).join());
+        assertThrows(CompletionException.class, () -> handle().join());
 
         verify(snapshotRepository, never()).replaceAvailableSessionKeys(eq(42L), org.mockito.ArgumentMatchers.anySet());
         verify(metrics).recordFailure(PuppetTheatreCheckResult.DELIVERY_ERROR);
@@ -172,8 +181,7 @@ class PuppetTheatreUpdateHandlerTest {
         when(client.getAvailableSessions()).thenReturn(Mono.just(page(EXISTING)));
         when(snapshotRepository.getAvailableSessionKeys(42L)).thenThrow(new IllegalStateException("read failed"));
 
-        assertThrows(
-                CompletionException.class, () -> handler.handle(TRACKED_LINK).join());
+        assertThrows(CompletionException.class, () -> handle().join());
 
         verify(snapshotRepository, never()).replaceAvailableSessionKeys(eq(42L), org.mockito.ArgumentMatchers.anySet());
         verifyNoInteractions(notificationService);
@@ -189,8 +197,7 @@ class PuppetTheatreUpdateHandlerTest {
                 .when(snapshotRepository)
                 .replaceAvailableSessionKeys(42L, Set.of(EXISTING.snapshotKey()));
 
-        assertThrows(
-                CompletionException.class, () -> handler.handle(TRACKED_LINK).join());
+        assertThrows(CompletionException.class, () -> handle().join());
 
         verifyNoInteractions(notificationService);
         verify(metrics).recordFailure(PuppetTheatreCheckResult.STORAGE_ERROR);
@@ -203,7 +210,7 @@ class PuppetTheatreUpdateHandlerTest {
         when(client.getAvailableSessions()).thenReturn(Mono.just(page(EXISTING)));
         when(snapshotRepository.getAvailableSessionKeys(42L)).thenReturn(Optional.empty());
 
-        handler.handle(TRACKED_LINK).join();
+        handle().join();
 
         assertThat(meterRegistry
                         .find("custom_scrape_time")
@@ -222,8 +229,7 @@ class PuppetTheatreUpdateHandlerTest {
         when(client.getAvailableSessions())
                 .thenReturn(Mono.error(new PuppetTheatreException(PuppetTheatreCheckResult.ANTIBOT, "challenge")));
 
-        assertThrows(
-                CompletionException.class, () -> handler.handle(TRACKED_LINK).join());
+        assertThrows(CompletionException.class, () -> handle().join());
 
         verifyNoInteractions(snapshotRepository, notificationService);
         verify(metrics).recordFailure(PuppetTheatreCheckResult.ANTIBOT);
@@ -236,8 +242,7 @@ class PuppetTheatreUpdateHandlerTest {
                 .thenReturn(
                         Mono.error(new PuppetTheatreException(PuppetTheatreCheckResult.SKIPPED_BACKOFF, "backoff")));
 
-        assertThrows(
-                CompletionException.class, () -> handler.handle(TRACKED_LINK).join());
+        assertThrows(CompletionException.class, () -> handle().join());
 
         verifyNoInteractions(metrics, healthchecksClient, snapshotRepository, notificationService);
     }
@@ -256,6 +261,26 @@ class PuppetTheatreUpdateHandlerTest {
                 .isFalse();
         assertThat(PuppetTheatreUpdateHandler.isPuppetTheatreLink("https://puppet-minsk.by.evil/afisha"))
                 .isFalse();
+    }
+
+    @Test
+    void shouldShareOnePageRequestBetweenSubscribersInTheSameCheckCycle() {
+        when(client.getAvailableSessions()).thenReturn(Mono.just(page(EXISTING)));
+        when(snapshotRepository.getAvailableSessionKeys(42L)).thenReturn(Optional.empty());
+        when(snapshotRepository.getAvailableSessionKeys(43L)).thenReturn(Optional.empty());
+        PuppetTheatreUpdateHandler.CheckCycle checkCycle = handler.newCheckCycle();
+
+        CompletableFuture.allOf(
+                        handler.handle(TRACKED_LINK, checkCycle), handler.handle(SECOND_TRACKED_LINK, checkCycle))
+                .join();
+
+        verify(client).getAvailableSessions();
+        verify(snapshotRepository).replaceAvailableSessionKeys(42L, Set.of(EXISTING.snapshotKey()));
+        verify(snapshotRepository).replaceAvailableSessionKeys(43L, Set.of(EXISTING.snapshotKey()));
+    }
+
+    private CompletableFuture<Void> handle() {
+        return handler.handle(TRACKED_LINK, handler.newCheckCycle());
     }
 
     private PuppetTheatrePage page(PuppetTheatreSession... sessions) {

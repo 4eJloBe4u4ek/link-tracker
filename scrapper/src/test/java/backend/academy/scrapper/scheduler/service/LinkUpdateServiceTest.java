@@ -19,6 +19,7 @@ import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.scrapper.repository.LinkOperationRepository;
 import backend.academy.scrapper.scheduler.handler.GithubUpdateHandler;
 import backend.academy.scrapper.scheduler.handler.PuppetTheatreUpdateHandler;
+import backend.academy.scrapper.scheduler.handler.PuppetTheatreUpdateHandler.CheckCycle;
 import backend.academy.scrapper.scheduler.handler.StackOverflowUpdateHandler;
 import backend.academy.scrapper.scheduler.handler.TicketproUpdateHandler;
 import backend.academy.scrapper.service.LinkTypeResolver;
@@ -56,6 +57,9 @@ class LinkUpdateServiceTest {
     @Mock
     private PuppetTheatreUpdateHandler puppetTheatreHandler;
 
+    @Mock
+    private CheckCycle puppetTheatreCheckCycle;
+
     private LinkUpdateService linkUpdateService;
 
     @BeforeEach
@@ -63,6 +67,7 @@ class LinkUpdateServiceTest {
         when(scrapperConfig.scheduler()).thenReturn(scheduler);
         when(scheduler.threadCount()).thenReturn(2);
         when(scrapperConfig.batchSize()).thenReturn(4);
+        when(puppetTheatreHandler.newCheckCycle()).thenReturn(puppetTheatreCheckCycle);
 
         linkUpdateService = new LinkUpdateService(
                 scrapperConfig,
@@ -120,12 +125,13 @@ class LinkUpdateServiceTest {
     @Test
     void shouldCheckDirectPuppetTheatreUpdates() {
         when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(PUPPET_THEATRE_TRACKED_LINK));
-        when(puppetTheatreHandler.handle(PUPPET_THEATRE_TRACKED_LINK))
+        when(puppetTheatreHandler.handle(PUPPET_THEATRE_TRACKED_LINK, puppetTheatreCheckCycle))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         linkUpdateService.checkForUpdates();
 
-        verify(puppetTheatreHandler).handle(PUPPET_THEATRE_TRACKED_LINK);
+        verify(puppetTheatreHandler).newCheckCycle();
+        verify(puppetTheatreHandler).handle(PUPPET_THEATRE_TRACKED_LINK, puppetTheatreCheckCycle);
         verify(linkOperationRepository).updateLastCheckedTime(eq(PUPPET_THEATRE_TRACKED_LINK), any());
     }
 
@@ -195,7 +201,9 @@ class LinkUpdateServiceTest {
         linkUpdateService.checkForUpdates();
 
         // Assert
-        verifyNoInteractions(githubHandler, stackoverflowHandler, ticketproHandler, puppetTheatreHandler);
+        verifyNoInteractions(githubHandler, stackoverflowHandler, ticketproHandler);
+        verify(puppetTheatreHandler).newCheckCycle();
+        verify(puppetTheatreHandler, never()).handle(any(), any());
         verify(linkOperationRepository, never()).updateLastCheckedTime(eq(UNKNOWN_TRACKED_LINK), any());
     }
 

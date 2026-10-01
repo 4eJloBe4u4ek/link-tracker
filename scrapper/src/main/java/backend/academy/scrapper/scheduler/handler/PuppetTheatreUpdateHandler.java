@@ -14,6 +14,7 @@ import backend.academy.shared.dto.TrackedLink;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -40,13 +41,18 @@ public class PuppetTheatreUpdateHandler {
         return PuppetTheatreClient.AFISHA_URI.toString().equals(url);
     }
 
-    public CompletableFuture<Void> handle(TrackedLink trackedLink) {
+    public CheckCycle newCheckCycle() {
+        return new CheckCycle(Mono.defer(client::getAvailableSessions));
+    }
+
+    public CompletableFuture<Void> handle(TrackedLink trackedLink, CheckCycle checkCycle) {
         if (!checksInProgress.add(trackedLink.id())) {
             return CompletableFuture.completedFuture(null);
         }
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
-            return client.getAvailableSessions()
+            return checkCycle
+                    .page()
                     .flatMap(page -> processAvailableSessions(trackedLink, page).thenReturn(page))
                     .doOnSuccess(page ->
                             recordSuccess(page.sessions().size(), page.months().size()))
@@ -118,5 +124,11 @@ public class PuppetTheatreUpdateHandler {
                 .setCause(error)
                 .log();
         metrics.recordFailure(result);
+    }
+
+    public record CheckCycle(Mono<PuppetTheatrePage> page) {
+        public CheckCycle {
+            page = Objects.requireNonNull(page, "page").cache();
+        }
     }
 }

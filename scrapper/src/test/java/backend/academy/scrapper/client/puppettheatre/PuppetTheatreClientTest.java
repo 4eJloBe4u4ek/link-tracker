@@ -83,24 +83,37 @@ class PuppetTheatreClientTest {
     }
 
     @Test
-    void shouldAllowOneRegularRetryThenBackOffForTwoMinutes() {
+    void shouldBackOffForTwoMinutesAfterForbiddenResponse() {
         wireMock.stubFor(get(urlEqualTo("/afisha")).willReturn(aResponse().withStatus(403)));
 
         verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_403);
-        verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_403);
         verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.SKIPPED_BACKOFF);
-        wireMock.verify(2, getRequestedFor(urlEqualTo("/afisha")));
-        clock.advance(Duration.ofMinutes(2));
+        wireMock.verify(1, getRequestedFor(urlEqualTo("/afisha")));
+        clock.advance(Duration.ofMinutes(3));
         verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_403);
-        wireMock.verify(3, getRequestedFor(urlEqualTo("/afisha")));
+        wireMock.verify(2, getRequestedFor(urlEqualTo("/afisha")));
     }
 
     @Test
-    void shouldUseRegularRetryForFirstRateLimitWithoutRetryAfter() {
+    void shouldUseFiveMinuteFallbackForRateLimitWithoutRetryAfter() {
         wireMock.stubFor(get(urlEqualTo("/afisha")).willReturn(aResponse().withStatus(429)));
 
         verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_429);
+        verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.SKIPPED_BACKOFF);
+        clock.advance(Duration.ofMinutes(6));
         verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_429);
+
+        wireMock.verify(2, getRequestedFor(urlEqualTo("/afisha")));
+    }
+
+    @Test
+    void shouldBackOffTransientHttpFailures() {
+        wireMock.stubFor(get(urlEqualTo("/afisha")).willReturn(aResponse().withStatus(508)));
+
+        verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_ERROR);
+        verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.SKIPPED_BACKOFF);
+        clock.advance(Duration.ofMinutes(2));
+        verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_ERROR);
 
         wireMock.verify(2, getRequestedFor(urlEqualTo("/afisha")));
     }
