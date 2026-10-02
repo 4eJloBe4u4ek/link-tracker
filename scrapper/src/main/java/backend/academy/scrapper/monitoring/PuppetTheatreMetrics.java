@@ -1,9 +1,12 @@
 package backend.academy.scrapper.monitoring;
 
+import backend.academy.scrapper.client.puppettheatre.PuppetTheatreBackoff.BackoffState;
 import backend.academy.scrapper.client.puppettheatre.PuppetTheatreCheckResult;
+import backend.academy.scrapper.client.puppettheatre.PuppetTheatreClient;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +19,13 @@ public class PuppetTheatreMetrics {
     public static final String SOURCE_TYPE = "puppet_theatre";
 
     private static final String CHECK_COUNTER_NAME = "puppet_theatre_check_total";
+    private static final List<PuppetTheatreCheckResult> BACKOFF_REASONS = List.of(
+            PuppetTheatreCheckResult.HTTP_403,
+            PuppetTheatreCheckResult.HTTP_429,
+            PuppetTheatreCheckResult.ANTIBOT,
+            PuppetTheatreCheckResult.TIMEOUT,
+            PuppetTheatreCheckResult.NETWORK_ERROR,
+            PuppetTheatreCheckResult.HTTP_ERROR);
 
     private final MeterRegistry meterRegistry;
     private final Clock clock;
@@ -25,11 +35,11 @@ public class PuppetTheatreMetrics {
     private final AtomicInteger availableMonths = new AtomicInteger();
 
     @Autowired
-    public PuppetTheatreMetrics(MeterRegistry meterRegistry) {
-        this(meterRegistry, Clock.systemUTC());
+    public PuppetTheatreMetrics(MeterRegistry meterRegistry, PuppetTheatreClient client) {
+        this(meterRegistry, client, Clock.systemUTC());
     }
 
-    PuppetTheatreMetrics(MeterRegistry meterRegistry, Clock clock) {
+    PuppetTheatreMetrics(MeterRegistry meterRegistry, PuppetTheatreClient client, Clock clock) {
         this.meterRegistry = meterRegistry;
         this.clock = clock;
         Gauge.builder("puppet_theatre_consecutive_failures", consecutiveFailures, AtomicInteger::get)
@@ -40,6 +50,12 @@ public class PuppetTheatreMetrics {
                 .register(meterRegistry);
         Gauge.builder("puppet_theatre_available_months", availableMonths, AtomicInteger::get)
                 .register(meterRegistry);
+        Gauge.builder("puppet_theatre_backoff_until_timestamp_seconds", client, this::backoffUntilTimestamp)
+                .register(meterRegistry);
+        BACKOFF_REASONS.forEach(reason -> Gauge.builder(
+                        "puppet_theatre_backoff_reason", client, value -> isActiveFor(value, reason) ? 1 : 0)
+                .tag("reason", reason.metricValue())
+                .register(meterRegistry));
     }
 
     public void recordSuccess(int sessionCount, int monthCount) {
@@ -59,9 +75,16 @@ public class PuppetTheatreMetrics {
         meterRegistry
                 .counter(CHECK_COUNTER_NAME, "result", result.metricValue())
                 .increment();
-        int previousFailures = consecutiveFailures.getAndIncrement();
-        if (previousFailures == 0) {
-            log.warn("Puppet theatre checks started failing: {}", result.metricValue());
-        }
+        consecutiveFailures.incrementAndGet();
+    }
+
+    private double backoffUntilTimestamp(PuppetTheatreClient value) {
+        BackoffState state = value.backoffState();
+        return state.isActiveAt(clock.instant()) ? state.blockedUntil().getEpochSecond() : 0;
+    }
+
+    private boolean isActiveFor(PuppetTheatreClient value, PuppetTheatreCheckResult reason) {
+        BackoffState state = value.backoffState();
+        return state.isActiveAt(clock.instant()) && state.reason() == reason;
     }
 }

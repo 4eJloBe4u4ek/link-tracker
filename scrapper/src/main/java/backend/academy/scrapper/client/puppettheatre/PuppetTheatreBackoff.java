@@ -13,6 +13,7 @@ public final class PuppetTheatreBackoff {
     private final DoubleSupplier jitterSupplier;
     private Instant blockedUntil;
     private BackoffPolicy activePolicy;
+    private PuppetTheatreCheckResult activeReason;
     private int consecutiveFailures;
 
     public PuppetTheatreBackoff(Clock clock) {
@@ -28,25 +29,33 @@ public final class PuppetTheatreBackoff {
         return blockedUntil == null || !clock.instant().isBefore(blockedUntil);
     }
 
-    public synchronized Duration recordFailure(PuppetTheatreCheckResult result, Duration retryAfter) {
+    public synchronized BackoffDecision recordFailure(PuppetTheatreCheckResult result, Duration retryAfter) {
         BackoffPolicy policy = BackoffPolicy.forResult(result);
         if (policy != activePolicy) {
             activePolicy = policy;
             consecutiveFailures = 0;
         }
+        activeReason = result;
         consecutiveFailures++;
 
         Duration adaptive = applyJitter(policy.delayFor(consecutiveFailures));
         Duration requested = retryAfter == null || retryAfter.isNegative() ? Duration.ZERO : retryAfter;
-        Duration delay = adaptive.compareTo(requested) >= 0 ? adaptive : requested;
+        Duration cappedRetryAfter =
+                requested.compareTo(policy.maximumRetryAfter()) > 0 ? policy.maximumRetryAfter() : requested;
+        Duration delay = adaptive.compareTo(cappedRetryAfter) >= 0 ? adaptive : cappedRetryAfter;
         blockedUntil = delay.isZero() ? null : clock.instant().plus(delay);
-        return delay;
+        return new BackoffDecision(requested, delay, blockedUntil);
     }
 
     public synchronized void recordSuccess() {
         blockedUntil = null;
         activePolicy = null;
+        activeReason = null;
         consecutiveFailures = 0;
+    }
+
+    public synchronized BackoffState state() {
+        return new BackoffState(blockedUntil, activeReason);
     }
 
     private Duration applyJitter(Duration delay) {
@@ -57,18 +66,20 @@ public final class PuppetTheatreBackoff {
     }
 
     private enum BackoffPolicy {
-        TRANSIENT(Duration.ofMinutes(1), Duration.ofMinutes(2), Duration.ofMinutes(5)),
-        FORBIDDEN(Duration.ofMinutes(2), Duration.ofMinutes(5), Duration.ofMinutes(10)),
-        RATE_LIMIT(Duration.ofMinutes(5), Duration.ofMinutes(15), Duration.ofMinutes(30));
+        TRANSIENT(Duration.ofMinutes(1), Duration.ofMinutes(2), Duration.ofMinutes(5), Duration.ofMinutes(10)),
+        FORBIDDEN(Duration.ofMinutes(2), Duration.ofMinutes(5), Duration.ofMinutes(10), Duration.ofMinutes(10)),
+        RATE_LIMIT(Duration.ofMinutes(5), Duration.ofMinutes(15), Duration.ofMinutes(30), Duration.ofMinutes(30));
 
         private final Duration firstDelay;
         private final Duration secondDelay;
         private final Duration maximumDelay;
+        private final Duration maximumRetryAfter;
 
-        BackoffPolicy(Duration firstDelay, Duration secondDelay, Duration maximumDelay) {
+        BackoffPolicy(Duration firstDelay, Duration secondDelay, Duration maximumDelay, Duration maximumRetryAfter) {
             this.firstDelay = firstDelay;
             this.secondDelay = secondDelay;
             this.maximumDelay = maximumDelay;
+            this.maximumRetryAfter = maximumRetryAfter;
         }
 
         private static BackoffPolicy forResult(PuppetTheatreCheckResult result) {
@@ -86,6 +97,18 @@ public final class PuppetTheatreBackoff {
                 case 2 -> secondDelay;
                 default -> maximumDelay;
             };
+        }
+
+        private Duration maximumRetryAfter() {
+            return maximumRetryAfter;
+        }
+    }
+
+    public record BackoffDecision(Duration requestedRetryAfter, Duration effectiveDelay, Instant nextAttemptAt) {}
+
+    public record BackoffState(Instant blockedUntil, PuppetTheatreCheckResult reason) {
+        public boolean isActiveAt(Instant instant) {
+            return blockedUntil != null && instant.isBefore(blockedUntil);
         }
     }
 }

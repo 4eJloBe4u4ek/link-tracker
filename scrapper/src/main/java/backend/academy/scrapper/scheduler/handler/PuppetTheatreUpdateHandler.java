@@ -119,10 +119,14 @@ public class PuppetTheatreUpdateHandler {
         if (result == PuppetTheatreCheckResult.SKIPPED_BACKOFF) {
             return;
         }
-        log.atError()
-                .setMessage("Failed to check puppet theatre afisha")
-                .setCause(error)
-                .log();
+        if (!(error instanceof PuppetTheatreException)
+                || result == PuppetTheatreCheckResult.STORAGE_ERROR
+                || result == PuppetTheatreCheckResult.DELIVERY_ERROR) {
+            String reason = error instanceof PuppetTheatreException
+                    ? error.getMessage()
+                    : error.getClass().getSimpleName();
+            log.warn("Puppet theatre processing failed: result={}, reason={}", result.metricValue(), reason);
+        }
         metrics.recordFailure(result);
     }
 

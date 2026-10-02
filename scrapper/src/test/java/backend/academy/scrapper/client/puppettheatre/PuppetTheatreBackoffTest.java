@@ -2,6 +2,8 @@ package backend.academy.scrapper.client.puppettheatre;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import backend.academy.scrapper.client.puppettheatre.PuppetTheatreBackoff.BackoffDecision;
+import backend.academy.scrapper.client.puppettheatre.PuppetTheatreBackoff.BackoffState;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -37,13 +39,28 @@ class PuppetTheatreBackoffTest {
     }
 
     @Test
-    void shouldHonorRetryAfterWhenItIsLongerThanTheAdaptiveDelay() {
-        Duration delay = backoff.recordFailure(PuppetTheatreCheckResult.HTTP_429, Duration.ofHours(2));
+    void shouldCapTransientRetryAfterAtTenMinutes() {
+        BackoffDecision decision = backoff.recordFailure(PuppetTheatreCheckResult.HTTP_ERROR, Duration.ofHours(4));
 
-        assertThat(delay).isEqualTo(Duration.ofHours(2));
+        assertThat(decision.requestedRetryAfter()).isEqualTo(Duration.ofHours(4));
+        assertThat(decision.effectiveDelay()).isEqualTo(Duration.ofMinutes(10));
         assertThat(backoff.requestAllowed()).isFalse();
-        clock.advance(Duration.ofHours(2));
+        clock.advance(Duration.ofMinutes(10));
         assertThat(backoff.requestAllowed()).isTrue();
+    }
+
+    @Test
+    void shouldCapForbiddenRetryAfterAtTenMinutes() {
+        BackoffDecision decision = backoff.recordFailure(PuppetTheatreCheckResult.HTTP_403, Duration.ofHours(4));
+
+        assertThat(decision.effectiveDelay()).isEqualTo(Duration.ofMinutes(10));
+    }
+
+    @Test
+    void shouldCapRateLimitRetryAfterAtThirtyMinutes() {
+        BackoffDecision decision = backoff.recordFailure(PuppetTheatreCheckResult.HTTP_429, Duration.ofHours(4));
+
+        assertThat(decision.effectiveDelay()).isEqualTo(Duration.ofMinutes(30));
     }
 
     @Test
@@ -69,15 +86,34 @@ class PuppetTheatreBackoffTest {
         PuppetTheatreBackoff positiveJitter = new PuppetTheatreBackoff(clock, () -> 0.5);
         PuppetTheatreBackoff negativeJitter = new PuppetTheatreBackoff(clock, () -> -0.5);
 
-        assertThat(positiveJitter.recordFailure(PuppetTheatreCheckResult.HTTP_ERROR, Duration.ZERO))
+        assertThat(positiveJitter
+                        .recordFailure(PuppetTheatreCheckResult.HTTP_ERROR, Duration.ZERO)
+                        .effectiveDelay())
                 .isEqualTo(Duration.ofSeconds(66));
-        assertThat(negativeJitter.recordFailure(PuppetTheatreCheckResult.HTTP_ERROR, Duration.ofMinutes(1)))
+        assertThat(negativeJitter
+                        .recordFailure(PuppetTheatreCheckResult.HTTP_ERROR, Duration.ofMinutes(1))
+                        .effectiveDelay())
                 .isEqualTo(Duration.ofMinutes(1));
     }
 
+    @Test
+    void shouldExposeAndClearCurrentBackoffState() {
+        BackoffDecision decision = backoff.recordFailure(PuppetTheatreCheckResult.HTTP_403, Duration.ZERO);
+
+        BackoffState state = backoff.state();
+        assertThat(state.reason()).isEqualTo(PuppetTheatreCheckResult.HTTP_403);
+        assertThat(state.blockedUntil()).isEqualTo(decision.nextAttemptAt());
+        assertThat(state.isActiveAt(clock.instant())).isTrue();
+
+        backoff.recordSuccess();
+
+        assertThat(backoff.state().blockedUntil()).isNull();
+        assertThat(backoff.state().reason()).isNull();
+    }
+
     private void assertDelay(PuppetTheatreCheckResult result, Duration expected) {
-        Duration actual = backoff.recordFailure(result, Duration.ZERO);
-        assertThat(actual).isEqualTo(expected);
+        BackoffDecision actual = backoff.recordFailure(result, Duration.ZERO);
+        assertThat(actual.effectiveDelay()).isEqualTo(expected);
         assertThat(backoff.requestAllowed()).isFalse();
         clock.advance(expected);
         assertThat(backoff.requestAllowed()).isTrue();

@@ -9,6 +9,9 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import java.net.URI;
 import java.time.Clock;
@@ -18,6 +21,7 @@ import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import reactor.core.publisher.Mono;
@@ -116,6 +120,74 @@ class PuppetTheatreClientTest {
         verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_ERROR);
 
         wireMock.verify(2, getRequestedFor(urlEqualTo("/afisha")));
+    }
+
+    @Test
+    void shouldCapCloudLinuxRetryAfterFor508AtTenMinutes() {
+        wireMock.stubFor(get(urlEqualTo("/afisha"))
+                .willReturn(aResponse().withStatus(508).withHeader(HttpHeaders.RETRY_AFTER, "14400")));
+
+        verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_ERROR);
+        clock.advance(Duration.ofMinutes(9));
+        verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.SKIPPED_BACKOFF);
+        clock.advance(Duration.ofMinutes(1));
+        verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_ERROR);
+
+        wireMock.verify(2, getRequestedFor(urlEqualTo("/afisha")));
+    }
+
+    @Test
+    void shouldCapForbiddenRetryAfterAtTenMinutes() {
+        wireMock.stubFor(get(urlEqualTo("/afisha"))
+                .willReturn(aResponse().withStatus(403).withHeader(HttpHeaders.RETRY_AFTER, "14400")));
+
+        verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_403);
+        clock.advance(Duration.ofMinutes(10));
+        verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_403);
+
+        wireMock.verify(2, getRequestedFor(urlEqualTo("/afisha")));
+    }
+
+    @Test
+    void shouldCapRateLimitRetryAfterAtThirtyMinutes() {
+        wireMock.stubFor(get(urlEqualTo("/afisha"))
+                .willReturn(aResponse().withStatus(429).withHeader(HttpHeaders.RETRY_AFTER, "14400")));
+
+        verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_429);
+        clock.advance(Duration.ofMinutes(29));
+        verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.SKIPPED_BACKOFF);
+        clock.advance(Duration.ofMinutes(1));
+        verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_429);
+
+        wireMock.verify(2, getRequestedFor(urlEqualTo("/afisha")));
+    }
+
+    @Test
+    void shouldLogSafeFailureSummaryWithoutStackTrace() {
+        wireMock.stubFor(get(urlEqualTo("/afisha"))
+                .willReturn(aResponse().withStatus(508).withHeader(HttpHeaders.RETRY_AFTER, "14400")));
+        Logger logger = (Logger) LoggerFactory.getLogger(PuppetTheatreClient.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            verifyFailure(client.getAvailableSessions(), PuppetTheatreCheckResult.HTTP_ERROR);
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+
+        assertThat(appender.list).singleElement().satisfies(event -> {
+            assertThat(event.getFormattedMessage())
+                    .contains(
+                            "result=http_error",
+                            "status=508",
+                            "retryAfter=PT4H",
+                            "backoff=PT10M",
+                            "nextAttempt=2026-09-14T10:10:00Z");
+            assertThat(event.getThrowableProxy()).isNull();
+        });
     }
 
     @Test

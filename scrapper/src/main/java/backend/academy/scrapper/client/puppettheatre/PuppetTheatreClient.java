@@ -1,5 +1,7 @@
 package backend.academy.scrapper.client.puppettheatre;
 
+import backend.academy.scrapper.client.puppettheatre.PuppetTheatreBackoff.BackoffDecision;
+import backend.academy.scrapper.client.puppettheatre.PuppetTheatreBackoff.BackoffState;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
@@ -12,6 +14,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.http.HttpCookie;
@@ -28,6 +31,7 @@ import org.springframework.web.reactive.function.client.WebClientRequestExceptio
 import reactor.core.publisher.Mono;
 
 @Component
+@Slf4j
 public class PuppetTheatreClient {
     public static final URI AFISHA_URI = URI.create("https://puppet-minsk.by/afisha");
 
@@ -73,8 +77,12 @@ public class PuppetTheatreClient {
                 })
                 .timeout(requestTimeout)
                 .onErrorMap(this::classifyFailure)
-                .doOnError(this::recordBackoffFailure)
+                .doOnError(this::recordFailure)
                 .doOnSuccess(ignored -> backoff.recordSuccess());
+    }
+
+    public BackoffState backoffState() {
+        return backoff.state();
     }
 
     private Mono<String> fetchAfisha() {
@@ -92,22 +100,28 @@ public class PuppetTheatreClient {
             return fail(
                     PuppetTheatreCheckResult.ANTIBOT,
                     "Puppet theatre returned an unsafe redirect",
+                    status.value(),
                     retryAfter(response));
         }
         if (status.isSameCodeAs(HttpStatus.FORBIDDEN)) {
             return fail(
-                    PuppetTheatreCheckResult.HTTP_403, "Puppet theatre request forbidden", retryAfter(response));
+                    PuppetTheatreCheckResult.HTTP_403,
+                    "Puppet theatre request forbidden",
+                    status.value(),
+                    retryAfter(response));
         }
         if (status.isSameCodeAs(HttpStatus.TOO_MANY_REQUESTS)) {
             return fail(
                     PuppetTheatreCheckResult.HTTP_429,
                     "Puppet theatre rate limit exceeded",
+                    status.value(),
                     retryAfter(response));
         }
         if (!status.is2xxSuccessful()) {
             return fail(
                     PuppetTheatreCheckResult.HTTP_ERROR,
                     "Puppet theatre returned HTTP " + status.value(),
+                    status.value(),
                     retryAfter(response));
         }
         return readHtml(response);
@@ -117,12 +131,18 @@ public class PuppetTheatreClient {
         MediaType contentType = response.headers().contentType().orElse(null);
         if (contentType == null || !MediaType.TEXT_HTML.isCompatibleWith(contentType)) {
             return fail(
-                    PuppetTheatreCheckResult.PARSE_ERROR, "Puppet theatre returned non-HTML content", Duration.ZERO);
+                    PuppetTheatreCheckResult.PARSE_ERROR,
+                    "Puppet theatre returned non-HTML content",
+                    response.statusCode().value(),
+                    Duration.ZERO);
         }
         return response.bodyToMono(String.class)
                 .filter(body -> !body.isBlank())
-                .switchIfEmpty(
-                        fail(PuppetTheatreCheckResult.EMPTY_PAGE, "Puppet theatre returned empty HTML", Duration.ZERO));
+                .switchIfEmpty(fail(
+                        PuppetTheatreCheckResult.EMPTY_PAGE,
+                        "Puppet theatre returned empty HTML",
+                        response.statusCode().value(),
+                        Duration.ZERO));
     }
 
     private void rememberCookies(ClientResponse response) {
@@ -170,17 +190,37 @@ public class PuppetTheatreClient {
                 PuppetTheatreCheckResult.PARSE_ERROR, "Puppet theatre response could not be parsed", error);
     }
 
-    private void recordBackoffFailure(Throwable error) {
+    private void recordFailure(Throwable error) {
         if (!(error instanceof PuppetTheatreException exception)) {
             return;
         }
-        switch (exception.result()) {
-            case ANTIBOT, HTTP_403, HTTP_429, HTTP_ERROR, NETWORK_ERROR, TIMEOUT -> backoff.recordFailure(
-                    exception.result(), exception.retryAfter());
-            default -> {
-                // Parsing, storage and delivery failures do not indicate that the remote site needs a pause.
-            }
+        if (exception.result() == PuppetTheatreCheckResult.SKIPPED_BACKOFF) {
+            return;
         }
+
+        BackoffDecision decision =
+                switch (exception.result()) {
+                    case ANTIBOT, HTTP_403, HTTP_429, HTTP_ERROR, NETWORK_ERROR, TIMEOUT -> backoff.recordFailure(
+                            exception.result(), exception.retryAfter());
+                    default -> null;
+                };
+        logFailure(exception, decision);
+    }
+
+    private void logFailure(PuppetTheatreException exception, BackoffDecision decision) {
+        Duration effectiveDelay = decision == null ? Duration.ZERO : decision.effectiveDelay();
+        String nextAttempt =
+                decision == null ? "none" : decision.nextAttemptAt().toString();
+        String status =
+                exception.statusCode() == null ? "none" : exception.statusCode().toString();
+        log.warn(
+                "Puppet theatre check failed: result={}, status={}, retryAfter={}, backoff={}, nextAttempt={}, reason={}",
+                exception.result().metricValue(),
+                status,
+                exception.retryAfter(),
+                effectiveDelay,
+                nextAttempt,
+                exception.getMessage());
     }
 
     private Duration retryAfter(ClientResponse response) {
@@ -205,7 +245,7 @@ public class PuppetTheatreClient {
         }
     }
 
-    private Mono<String> fail(PuppetTheatreCheckResult result, String message, Duration retryAfter) {
-        return Mono.error(new PuppetTheatreException(result, message, retryAfter));
+    private Mono<String> fail(PuppetTheatreCheckResult result, String message, int statusCode, Duration retryAfter) {
+        return Mono.error(new PuppetTheatreException(result, message, statusCode, retryAfter));
     }
 }

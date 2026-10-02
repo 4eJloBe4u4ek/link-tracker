@@ -15,6 +15,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import backend.academy.scrapper.client.puppettheatre.PuppetTheatreCheckResult;
+import backend.academy.scrapper.client.puppettheatre.PuppetTheatreException;
 import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.scrapper.repository.LinkOperationRepository;
 import backend.academy.scrapper.scheduler.handler.GithubUpdateHandler;
@@ -24,6 +26,9 @@ import backend.academy.scrapper.scheduler.handler.StackOverflowUpdateHandler;
 import backend.academy.scrapper.scheduler.handler.TicketproUpdateHandler;
 import backend.academy.scrapper.service.LinkTypeResolver;
 import backend.academy.shared.dto.TrackedLink;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -32,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 
 @ExtendWith(MockitoExtension.class)
 class LinkUpdateServiceTest {
@@ -172,6 +178,28 @@ class LinkUpdateServiceTest {
         // Assert
         verify(ticketproHandler).handle(TICKETPRO_TRACKED_LINK);
         verify(linkOperationRepository, never()).updateLastCheckedTime(eq(TICKETPRO_TRACKED_LINK), any());
+    }
+
+    @Test
+    void shouldNotLogChecksSkippedDuringPuppetTheatreBackoff() {
+        when(linkOperationRepository.getAllLinks(0)).thenReturn(List.of(PUPPET_THEATRE_TRACKED_LINK));
+        when(puppetTheatreHandler.handle(PUPPET_THEATRE_TRACKED_LINK, puppetTheatreCheckCycle))
+                .thenReturn(CompletableFuture.failedFuture(new PuppetTheatreException(
+                        PuppetTheatreCheckResult.SKIPPED_BACKOFF, "Puppet theatre check is in backoff")));
+        Logger logger = (Logger) LoggerFactory.getLogger(LinkUpdateService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            linkUpdateService.checkForUpdates();
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+
+        assertTrue(appender.list.isEmpty());
+        verify(linkOperationRepository, never()).updateLastCheckedTime(eq(PUPPET_THEATRE_TRACKED_LINK), any());
     }
 
     @Test

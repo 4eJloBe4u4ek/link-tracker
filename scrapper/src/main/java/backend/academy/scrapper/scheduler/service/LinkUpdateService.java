@@ -1,5 +1,6 @@
 package backend.academy.scrapper.scheduler.service;
 
+import backend.academy.scrapper.client.puppettheatre.PuppetTheatreException;
 import backend.academy.scrapper.config.ScrapperConfig;
 import backend.academy.scrapper.repository.LinkOperationRepository;
 import backend.academy.scrapper.scheduler.handler.GithubUpdateHandler;
@@ -116,11 +117,28 @@ public class LinkUpdateService {
     }
 
     private void logUpdateFailure(TrackedLink trackedLink, Throwable error) {
+        if (containsPuppetTheatreFailure(error)) {
+            return;
+        }
         log.atError()
                 .setMessage("Failed to update tracked link")
                 .addKeyValue("url", trackedLink.url())
                 .setCause(error)
                 .log();
+    }
+
+    private boolean containsPuppetTheatreFailure(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof PuppetTheatreException) {
+                return true;
+            }
+            if (current.getCause() == current) {
+                return false;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private List<List<TrackedLink>> partition(List<TrackedLink> list, int size) {
